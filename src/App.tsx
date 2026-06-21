@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { 
-  FileDown, RotateCcw, Printer, Sparkles, AlertCircle, CheckCircle, HelpCircle, Eye, FileImage
+  FileDown, RotateCcw, Printer, Sparkles, AlertCircle, CheckCircle, HelpCircle, Eye, FileImage,
+  Edit3
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -51,6 +52,24 @@ export default function App() {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [previewScale, setPreviewScale] = useState<number>(0.85);
+  const [activeMobileTab, setActiveMobileTab] = useState<"edit" | "preview">("edit");
+
+  // Auto-fit preview scale to screen size dynamically on mobile/tablet devices
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        // Compute standard fit scale for viewport minus padding
+        const targetScale = Math.min(1.0, Math.max(0.35, (window.innerWidth - 32) / 794));
+        setPreviewScale(targetScale);
+      } else {
+        setPreviewScale(0.8);
+      }
+    };
+    
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const cvPreviewRef = useRef<HTMLDivElement | null>(null);
 
@@ -281,26 +300,27 @@ export default function App() {
       )}
 
       {/* Primary Top Utilities Header Bar */}
-      <header className="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 relative z-30 shadow-md">
-        <div className="flex items-center gap-2.5">
+      <header className="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-3 md:px-6 shrink-0 relative z-30 shadow-md">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-md shadow-lg shadow-indigo-500/10 shrink-0">
             AI
           </div>
           <div>
-            <h1 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5 leading-none">
-              AI Professional CV Builder
+            <h1 className="text-xs sm:text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5 leading-none">
+              <span className="hidden sm:inline">AI Professional CV Builder</span>
+              <span className="inline sm:hidden font-black">AI CV Builder</span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-medium">Automatic PDF formatter and resume writer</p>
+            <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer</p>
           </div>
         </div>
 
         {/* Toolbar Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           
           {/* Restart/Reset draft */}
           <button
             onClick={handleResetToSample}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-md text-xs font-semibold cursor-pointer transition select-none"
+            className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-md text-xs font-semibold cursor-pointer transition select-none"
             title="Reset to initial default template values"
             id="reset_template_btn"
           >
@@ -312,7 +332,7 @@ export default function App() {
           <button
             onClick={() => handleExport("pdf")}
             disabled={isExporting}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
+            className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
             id="download_pdf_btn"
           >
             {isExporting ? (
@@ -321,12 +341,14 @@ export default function App() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <span>Exporting...</span>
+                <span className="hidden sm:inline">Exporting...</span>
+                <span className="inline sm:hidden">...</span>
               </>
             ) : (
               <>
-                <FileDown className="w-4 h-4 text-white" />
-                <span>PDF Download</span>
+                <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                <span className="hidden sm:inline">PDF Download</span>
+                <span className="inline sm:hidden">PDF</span>
               </>
             )}
           </button>
@@ -335,7 +357,7 @@ export default function App() {
           <button
             onClick={() => handleExport("png")}
             disabled={isExporting}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-800 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
+            className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-800 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
             id="download_png_btn"
           >
             {isExporting ? (
@@ -344,12 +366,14 @@ export default function App() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <span>Exporting...</span>
+                <span className="hidden sm:inline">Exporting...</span>
+                <span className="inline sm:hidden">...</span>
               </>
             ) : (
               <>
-                <FileImage className="w-4 h-4 text-white" />
-                <span>PNG Image</span>
+                <FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                <span className="hidden sm:inline">PNG Image</span>
+                <span className="inline sm:hidden">PNG</span>
               </>
             )}
           </button>
@@ -357,11 +381,41 @@ export default function App() {
         </div>
       </header>
 
+      {/* Mobile Tab Control Switcher */}
+      <div className="md:hidden flex bg-slate-900 border-b border-slate-800 p-1.5 shrink-0 select-none">
+        <button
+          onClick={() => setActiveMobileTab("edit")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-bold transition-all ${
+            activeMobileTab === "edit"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/15"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+          id="mobile_tab_edit_btn"
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+          <span>Edit Details</span>
+        </button>
+        <button
+          onClick={() => setActiveMobileTab("preview")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-bold transition-all ${
+            activeMobileTab === "preview"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/15"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+          id="mobile_tab_preview_btn"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span>Live Preview</span>
+        </button>
+      </div>
+
       {/* Main Workspace Frame (Responsive Dual Panel) */}
       <div className="flex-grow flex flex-col md:flex-row overflow-hidden relative">
         
         {/* Panel 1: Left Form Configuration (Editable) */}
-        <div className="w-full md:w-[48%] lg:w-[42%] xl:w-[38%] shrink-0 h-1/2 md:h-full relative overflow-hidden flex flex-col">
+        <div className={`w-full md:w-[48%] lg:w-[42%] xl:w-[38%] shrink-0 h-full relative overflow-hidden flex flex-col ${
+          activeMobileTab === "edit" ? "flex" : "hidden md:flex"
+        }`}>
           <CVForm 
             data={cvData} 
             onChange={setCvData} 
@@ -371,7 +425,9 @@ export default function App() {
         </div>
 
         {/* Panel 2: Right Interactive A4 sheet preview */}
-        <div className="flex-grow h-1/2 md:h-full bg-slate-950 p-6 flex flex-col items-center justify-start overflow-y-auto relative border-t md:border-t-0 md:border-l border-slate-800 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.08),rgba(255,255,255,0))]">
+        <div className={`flex-grow h-full bg-slate-950 p-4 md:p-6 flex flex-col items-center justify-start overflow-y-auto relative border-t md:border-t-0 md:border-l border-slate-800 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.08),rgba(255,255,255,0))] ${
+          activeMobileTab === "preview" ? "flex" : "hidden md:flex"
+        }`}>
           
           <div className="w-full max-w-2xl flex justify-between items-center mb-4 text-slate-400 select-none shrink-0 border-b border-slate-900 pb-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold">
