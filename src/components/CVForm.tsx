@@ -75,7 +75,15 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
         })
       });
 
-      const resData = await response.json();
+      let resData: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(errorText || `Request failed with status ${response.status}`);
+      }
+
       if (!response.ok) {
         throw new Error(resData.error || "Failed to generate summary");
       }
@@ -114,7 +122,15 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
         })
       });
 
-      const resData = await response.json();
+      let resData: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(errorText || `Request failed with status ${response.status}`);
+      }
+
       if (!response.ok) {
         throw new Error(resData.error || "Failed to polish text");
       }
@@ -155,7 +171,15 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
         body: JSON.stringify({ jobTitle })
       });
 
-      const resData = await response.json();
+      let resData: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(errorText || `Request failed with status ${response.status}`);
+      }
+
       if (!response.ok) {
         throw new Error(resData.error || "Failed to fetch skills");
       }
