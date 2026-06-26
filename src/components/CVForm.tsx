@@ -4,15 +4,18 @@ import {
   Languages, Plus, Trash2, Palette, Sparkles, SlidersHorizontal, Loader2, Check 
 } from "lucide-react";
 import { CVData, DesignConfig, WorkExperience, Education, Project, Certification, Language, TemplateId } from "../types";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 interface CVFormProps {
   data: CVData;
   onChange: (data: CVData) => void;
   design: DesignConfig;
   onDesignChange: (design: DesignConfig) => void;
+  currentUser: { email: string; displayName: string; uid: string } | null;
 }
 
-export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesignChange }) => {
+export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesignChange, currentUser }) => {
   const [activeTab, setActiveTab] = useState<string>("design");
   const [skillInput, setSkillInput] = useState<string>("");
   
@@ -89,7 +92,23 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
       }
 
       if (resData.summary) {
-        onChange({ ...data, summary: resData.summary });
+        const updatedData = { ...data, summary: resData.summary };
+        onChange(updatedData);
+
+        // Save generated profile to users collection under their unique User ID if logged in
+        if (currentUser) {
+          try {
+            await setDoc(doc(db, "users", currentUser.uid), {
+              email: currentUser.email,
+              fullName: updatedData.personal.fullName || currentUser.displayName || "",
+              createdAt: new Date().toISOString(),
+              cvData: updatedData
+            }, { merge: true });
+            console.log("Successfully saved generated profile to Firestore for uid:", currentUser.uid);
+          } catch (fsErr) {
+            console.error("Error saving profile to Firestore:", fsErr);
+          }
+        }
       }
     } catch (err: any) {
       console.error(err);

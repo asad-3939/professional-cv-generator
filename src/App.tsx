@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   FileDown, RotateCcw, Printer, Sparkles, AlertCircle, CheckCircle, HelpCircle, Eye, FileImage,
-  Edit3
+  Edit3, LogOut, LogIn, User as UserIcon
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./lib/firebase";
 
 // Data & Types
 import { CVData, DesignConfig } from "./types";
@@ -13,6 +15,7 @@ import { initialCVData, initialDesignConfig } from "./sampleData";
 // Components
 import { CVForm } from "./components/CVForm";
 import { ResumeTemplates } from "./components/ResumeTemplates";
+import { AuthModal } from "./components/AuthModal";
 
 export default function App() {
   // Load data from localStorage or fallback to template data
@@ -53,6 +56,44 @@ export default function App() {
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [previewScale, setPreviewScale] = useState<number>(0.85);
   const [activeMobileTab, setActiveMobileTab] = useState<"edit" | "preview">("edit");
+
+  // User States
+  const [currentUser, setCurrentUser] = useState<{ email: string; displayName: string; uid: string } | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+  // Sync user state from Firebase on mount
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const loggedUser = {
+          email: user.email || "",
+          displayName: user.displayName || user.email || "Google User",
+          uid: user.uid
+        };
+        setCurrentUser(loggedUser);
+        
+        // Fetch saved profile from Firestore if it exists
+        try {
+          const { doc, getDoc } = await import("firebase/firestore");
+          const { db } = await import("./lib/firebase");
+          const userDocRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userDocRef);
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            if (data.cvData) {
+              setCvData(data.cvData);
+              setSuccessToast(`Welcome back, ${loggedUser.displayName}! Loaded your CV from Cloud.`);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load saved CV from Firestore:", err);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Auto-fit preview scale to screen size dynamically on mobile/tablet devices
   useEffect(() => {
@@ -378,6 +419,44 @@ export default function App() {
             )}
           </button>
 
+          {/* User Auth controls */}
+          {currentUser ? (
+            <div className="flex items-center gap-2 border-l border-slate-800 pl-3 ml-1.5" id="user-header-profile">
+              <div className="hidden lg:flex flex-col text-right">
+                <span className="text-[11px] font-bold text-white max-w-[120px] truncate leading-none">
+                  {currentUser.displayName}
+                </span>
+                <span className="text-[9px] text-slate-400 font-mono mt-0.5 max-w-[120px] truncate">
+                  {currentUser.email}
+                </span>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-indigo-400 text-xs shadow shrink-0">
+                {currentUser.displayName.charAt(0).toUpperCase()}
+              </div>
+              <button
+                onClick={() => {
+                  signOut(auth);
+                  setSuccessToast("Signed out successfully!");
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-md text-xs font-bold transition select-none cursor-pointer shrink-0"
+                title="Sign Out"
+                id="sign_out_btn"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-650 hover:bg-indigo-600 text-white rounded-md text-xs font-bold transition select-none cursor-pointer shrink-0 ml-1.5"
+              id="header_login_btn"
+            >
+              <LogIn className="w-3.5 h-3.5 text-white" />
+              <span>Sign In</span>
+            </button>
+          )}
+
         </div>
       </header>
 
@@ -421,6 +500,7 @@ export default function App() {
             onChange={setCvData} 
             design={designConfig}
             onDesignChange={setDesignConfig}
+            currentUser={currentUser}
           />
         </div>
 
@@ -479,6 +559,15 @@ export default function App() {
         </div>
 
       </div>
+
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setSuccessToast(`Successfully signed in as ${user.displayName}!`);
+        }}
+      />
 
     </div>
   );

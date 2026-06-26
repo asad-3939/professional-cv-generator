@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account and CV details saved by the user.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "fullName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "cvData": {
+          "type": "object",
+          "description": "The CV/Resume data object including personal info, summary, experience, education, skills, etc."
+        }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and CV/Resume data."
+    }
+  }
+}

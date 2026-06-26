@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { 
-  X, Mail, Lock, Eye, EyeOff, AlertCircle, Check, Loader2, Sparkles
+  X, Mail, Lock, Eye, EyeOff, AlertCircle, Check, Loader2, Sparkles, Chrome
 } from "lucide-react";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { auth } from "../lib/firebase";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,6 +25,40 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onAuthSuccess
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setErrMessage(null);
+    setSuccessMessage(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      setSuccessMessage("Successfully signed in with Google!");
+      setTimeout(() => {
+        onAuthSuccess({
+          email: user.email || "",
+          displayName: user.displayName || user.email || "Google User",
+          uid: user.uid
+        });
+        onClose();
+      }, 1000);
+    } catch (err: any) {
+      console.error("Google Auth error:", err);
+      if (err.code === "auth/popup-closed-by-user") {
+        setErrMessage("Google login popup was closed before completion.");
+      } else if (err.code === "auth/blocked-by-popup-blocker") {
+        setErrMessage("Google login popup was blocked. Please enable popups or open in a new tab.");
+      } else {
+        setErrMessage(err.message || "Failed to sign in with Google.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,6 +327,24 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login", onAuthSuccess
             ) : (
               <span>{activeTab === "login" ? "Sign In & Download" : "Create Account & Download"}</span>
             )}
+          </button>
+
+          <div className="relative my-4 flex items-center justify-center" id="auth-google-divider">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-800/80"></div>
+            </div>
+            <span className="relative px-3 bg-slate-900 text-[10px] font-bold text-slate-500 uppercase tracking-widest">or continue with</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full py-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 hover:bg-slate-900 text-slate-200 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            id="auth-google-btn"
+          >
+            <Chrome className="w-4 h-4 text-blue-400" />
+            <span>Sign in with Google</span>
           </button>
         </form>
 
