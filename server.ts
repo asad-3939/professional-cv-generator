@@ -4,8 +4,8 @@ import fs from "fs";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import crypto from "crypto";
-import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 const firebaseConfigPath = path.resolve(process.cwd(), "firebase-applet-config.json");
 const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
@@ -19,10 +19,16 @@ const app = express();
 // Middleware
 app.use(express.json());
 
-// Initialize Firebase for database auth bypass
-const firebaseApp = initializeApp(firebaseConfig);
-const dbId = (firebaseConfig as any).firestoreDatabaseId || "(default)";
-const db = getFirestore(firebaseApp, dbId);
+// Initialize Firebase Admin safely
+const dbId = firebaseConfig.firestoreDatabaseId || "(default)";
+
+if (getApps().length === 0) {
+  initializeApp({
+    projectId: firebaseConfig.projectId
+  });
+}
+
+const db = getFirestore(dbId && dbId !== "(default)" ? dbId : undefined);
 
 // Password encryption helpers using secure pbkdf2
 function hashPassword(password: string): { salt: string; hash: string } {
@@ -46,10 +52,10 @@ app.post("/api/auth/register", async (req, res) => {
     }
 
     const emailLower = email.trim().toLowerCase();
-    const userDocRef = doc(db, "users", emailLower);
-    const userDoc = await getDoc(userDocRef);
+    const userDocRef = db.collection("users").doc(emailLower);
+    const userDoc = await userDocRef.get();
 
-    if (userDoc.exists()) {
+    if (userDoc.exists) {
       res.status(400).json({ error: "This email is already in use. Please sign in instead." });
       return;
     }
@@ -63,7 +69,7 @@ app.post("/api/auth/register", async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    await setDoc(userDocRef, userData);
+    await userDocRef.set(userData);
 
     res.json({
       success: true,
@@ -88,15 +94,19 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const emailLower = email.trim().toLowerCase();
-    const userDocRef = doc(db, "users", emailLower);
-    const userDoc = await getDoc(userDocRef);
+    const userDocRef = db.collection("users").doc(emailLower);
+    const userDoc = await userDocRef.get();
 
-    if (!userDoc.exists()) {
+    if (!userDoc.exists) {
       res.status(400).json({ error: "Incorrect email or password. Please try again." });
       return;
     }
 
     const userData = userDoc.data();
+    if (!userData) {
+      res.status(400).json({ error: "Incorrect email or password. Please try again." });
+      return;
+    }
     const match = verifyPassword(password, userData.salt, userData.hash);
 
     if (!match) {

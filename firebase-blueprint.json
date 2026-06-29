@@ -14,12 +14,28 @@
         }
       },
       "required": ["email"]
+    },
+    "History": {
+      "title": "CV History Log",
+      "description": "Log of generated and downloaded CV snapshots.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string" },
+        "format": { "type": "string" },
+        "fileName": { "type": "string" },
+        "cvData": { "type": "object" }
+      },
+      "required": ["timestamp", "format", "cvData"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles and CV/Resume data."
+    },
+    "/users/{userId}/history/{historyId}": {
+      "schema": "History",
+      "description": "Snapshots of downloaded/generated CVs."
     }
   }
 }

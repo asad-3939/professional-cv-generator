@@ -98,11 +98,18 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
         // Save generated profile to users collection under their unique User ID if logged in
         if (currentUser) {
           try {
+            const { arrayUnion } = await import("firebase/firestore");
             await setDoc(doc(db, "users", currentUser.uid), {
               email: currentUser.email,
               fullName: updatedData.personal.fullName || currentUser.displayName || "",
               createdAt: new Date().toISOString(),
-              cvData: updatedData
+              cvData: updatedData,
+              aiGenerations: arrayUnion({
+                timestamp: new Date().toISOString(),
+                type: "AI Summary Generation",
+                description: `Generated professional summary for "${updatedData.personal.jobTitle || "Resume"}"`,
+                details: resData.summary.substring(0, 150) + "..."
+              })
             }, { merge: true });
             console.log("Successfully saved generated profile to Firestore for uid:", currentUser.uid);
           } catch (fsErr) {
@@ -161,7 +168,28 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
           }
           return exp;
         });
-        onChange({ ...data, experience: updatedExp });
+        const updatedData = { ...data, experience: updatedExp };
+        onChange(updatedData);
+
+        // Save generated profile/history to Firestore under their unique User ID if logged in
+        if (currentUser) {
+          try {
+            const { doc, setDoc, arrayUnion } = await import("firebase/firestore");
+            const expItem = data.experience.find(exp => exp.id === id);
+            await setDoc(doc(db, "users", currentUser.uid), {
+              cvData: updatedData,
+              aiGenerations: arrayUnion({
+                timestamp: new Date().toISOString(),
+                type: "AI Experience Polish",
+                description: `Polished bullets for position "${expItem?.position || "Role"}" at "${expItem?.company || "Company"}"`,
+                details: resData.polishedText.substring(0, 150) + "..."
+              })
+            }, { merge: true });
+            console.log("Successfully logged experience polish event to Firestore");
+          } catch (fsErr) {
+            console.error("Error saving experience polish history:", fsErr);
+          }
+        }
       }
     } catch (err: any) {
       console.error(err);
@@ -222,11 +250,32 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
         }
       });
 
-      onChange({
+      const updatedData = {
         ...data,
         skills: mergedSkills,
         certifications: mergedCerts
-      });
+      };
+
+      onChange(updatedData);
+
+      // Save generated profile/history to Firestore under their unique User ID if logged in
+      if (currentUser) {
+        try {
+          const { doc, setDoc, arrayUnion } = await import("firebase/firestore");
+          await setDoc(doc(db, "users", currentUser.uid), {
+            cvData: updatedData,
+            aiGenerations: arrayUnion({
+              timestamp: new Date().toISOString(),
+              type: "AI Skill Suggestions",
+              description: `Suggested skills and certifications for Job Title "${jobTitle}"`,
+              details: `Suggested keywords: ${freshSkills.slice(0, 5).join(", ")}`
+            })
+          }, { merge: true });
+          console.log("Successfully logged AI skill suggestions to Firestore");
+        } catch (fsErr) {
+          console.error("Error saving AI skills history:", fsErr);
+        }
+      }
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "Could not suggest skills.");

@@ -1,21 +1,23 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   FileDown, RotateCcw, Printer, Sparkles, AlertCircle, CheckCircle, HelpCircle, Eye, FileImage,
-  Edit3, LogOut, LogIn, User as UserIcon
+  Edit3, LogOut, LogIn, User as UserIcon, LayoutDashboard
 } from "lucide-react";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./lib/firebase";
 
 // Data & Types
-import { CVData, DesignConfig } from "./types";
+import { CVData, DesignConfig, TemplateId } from "./types";
 import { initialCVData, initialDesignConfig } from "./sampleData";
 
 // Components
 import { CVForm } from "./components/CVForm";
 import { ResumeTemplates } from "./components/ResumeTemplates";
 import { AuthModal } from "./components/AuthModal";
+import { UserDashboard } from "./components/UserDashboard";
+import { Homepage } from "./components/Homepage";
 
 export default function App() {
   // Load data from localStorage or fallback to template data
@@ -51,15 +53,19 @@ export default function App() {
   });
 
   // Action status triggers
-  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<"pdf" | "png" | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [previewScale, setPreviewScale] = useState<number>(0.85);
   const [activeMobileTab, setActiveMobileTab] = useState<"edit" | "preview">("edit");
+  const [viewMode, setViewMode] = useState<"landing" | "builder">("landing");
 
   // User States
   const [currentUser, setCurrentUser] = useState<{ email: string; displayName: string; uid: string } | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
+
+  const isInitialAuthCheck = useRef<boolean>(true);
 
   // Sync user state from Firebase on mount
   useEffect(() => {
@@ -82,7 +88,9 @@ export default function App() {
             const data = userSnap.data();
             if (data.cvData) {
               setCvData(data.cvData);
-              setSuccessToast(`Welcome back, ${loggedUser.displayName}! Loaded your CV from Cloud.`);
+              if (isInitialAuthCheck.current) {
+                setSuccessToast(`Welcome back, ${loggedUser.displayName}! Loaded your CV from Cloud.`);
+              }
             }
           }
         } catch (err) {
@@ -91,6 +99,7 @@ export default function App() {
       } else {
         setCurrentUser(null);
       }
+      isInitialAuthCheck.current = false;
     });
     return () => unsubscribe();
   }, []);
@@ -149,8 +158,15 @@ export default function App() {
 
   // High quality PDF / PNG generation
   const handleExport = async (format: "pdf" | "png") => {
+    // If not signed in, automatically trigger Auth Modal
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      setErrorToast("Please sign in with Google to download your CV.");
+      return;
+    }
+
     if (!cvPreviewRef.current) return;
-    setIsExporting(true);
+    setIsExporting(format);
     setErrorToast(null);
 
     try {
@@ -200,10 +216,10 @@ export default function App() {
             const clonedStyles = clonedDoc.querySelectorAll('style');
             clonedStyles.forEach((el) => el.remove());
 
-            // 3. Match OKLCH values (including nested parentheses for CSS vars, e.g. var(--tw-bg-opacity))
-            const oklchRegex = /oklch\((?:[^)(]+|\([^)(]*\))*\)/g;
+            // 3. Match OKLCH & OKLAB values (including nested parentheses for CSS vars, e.g. var(--tw-bg-opacity))
+            const oklchRegex = /okl(ch|ab)\((?:[^)(]+|\([^)(]*\))*\)/g;
 
-            // Setup a temporary off-screen div on host document to resolve computed oklch to standard legacy RGB natively
+            // Setup a temporary off-screen div on host document to resolve computed oklch/oklab to standard legacy RGB natively
             const tempEl = document.createElement("div");
             tempEl.style.display = "none";
             document.body.appendChild(tempEl);
@@ -227,7 +243,7 @@ export default function App() {
               return "rgb(120, 120, 120)"; // neutral dark-gray fallback
             };
 
-            // 4. Inject fully processed, oklch-free, standard legacy RGB CSS stylesheet
+            // 4. Inject fully processed, oklch/oklab-free, standard legacy RGB CSS stylesheet
             if (combinedCSSText) {
               const sanitizedCSSText = combinedCSSText.replace(oklchRegex, convertOklch);
               const legacyStyleTag = clonedDoc.createElement("style");
@@ -244,11 +260,11 @@ export default function App() {
               });
             }
 
-            // 5. Sanitize any inline style attributes where components might have defined local oklch
+            // 5. Sanitize any inline style attributes where components might have defined local oklch/oklab
             const inlineStyleNodes = clonedDoc.querySelectorAll("[style]");
             inlineStyleNodes.forEach((nodeEl) => {
               const inlineStyle = nodeEl.getAttribute("style") || "";
-              if (inlineStyle.includes("oklch")) {
+              if (inlineStyle.includes("oklch") || inlineStyle.includes("oklab")) {
                 const sanitizedInline = inlineStyle.replace(oklchRegex, convertOklch);
                 nodeEl.setAttribute("style", sanitizedInline);
               }
@@ -314,16 +330,50 @@ export default function App() {
         document.body.removeChild(link);
         setSuccessToast(`Successfully downloaded polished ${designConfig.templateId} style CV Image (PNG)!`);
       }
+
+      // Log download to Firestore subcollection if user is signed in
+      if (currentUser) {
+        try {
+          const { collection, addDoc, doc, setDoc, arrayUnion, increment } = await import("firebase/firestore");
+          const { db } = await import("./lib/firebase");
+          
+          const newDownload = {
+            timestamp: new Date().toISOString(),
+            format: format,
+            fileName: `${fileNameStr}_CV.${format}`
+          };
+
+          // Update main user document with the count and log entry
+          await setDoc(doc(db, "users", currentUser.uid), {
+            downloadsCount: increment(1),
+            downloads: arrayUnion(newDownload)
+          }, { merge: true });
+
+          // Also add a snapshot to history subcollection
+          await addDoc(collection(db, "users", currentUser.uid, "history"), {
+            timestamp: new Date().toISOString(),
+            format: format,
+            fileName: `${fileNameStr}_CV.${format}`,
+            cvData: cvData,
+            designConfig: designConfig
+          });
+          console.log("Successfully recorded CV download in Firestore history subcollection.");
+        } catch (fsErr) {
+          console.error("Failed to log download history:", fsErr);
+        }
+      }
     } catch (error: any) {
       console.error("Export crash error:", error);
       setErrorToast(error.message || "Export process failed. Contact administrator.");
     } finally {
-      setIsExporting(false);
+      setIsExporting(null);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 font-sans tracking-tight text-slate-100 overflow-hidden select-none">
+    <div className={`flex flex-col bg-slate-950 font-sans tracking-tight text-slate-100 select-none ${
+      viewMode === "landing" ? "min-h-screen overflow-y-auto" : "h-screen overflow-hidden"
+    }`}>
       
       {/* Dynamic Notifications */}
       {successToast && (
@@ -340,20 +390,47 @@ export default function App() {
         </div>
       )}
 
-      {/* Primary Top Utilities Header Bar */}
-      <header className="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-3 md:px-6 shrink-0 relative z-30 shadow-md">
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-md shadow-lg shadow-indigo-500/10 shrink-0">
-            AI
-          </div>
-          <div>
-            <h1 className="text-xs sm:text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5 leading-none">
-              <span className="hidden sm:inline">AI Professional CV Builder</span>
-              <span className="inline sm:hidden font-black">AI CV Builder</span>
-            </h1>
-            <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer</p>
-          </div>
-        </div>
+      {viewMode === "landing" ? (
+        <Homepage 
+          currentUser={currentUser}
+          onStartBuilding={(templateId) => {
+            if (templateId) {
+              setDesignConfig(prev => ({ ...prev, templateId }));
+            }
+            setViewMode("builder");
+          }}
+          onSignIn={() => {
+            setSuccessToast(null);
+            setErrorToast(null);
+            setIsAuthModalOpen(true);
+          }}
+          onSignOut={() => {
+            signOut(auth);
+            setSuccessToast("Signed out successfully!");
+          }}
+          onOpenDashboard={() => setIsHistoryModalOpen(true)}
+        />
+      ) : (
+        <>
+          {/* Primary Top Utilities Header Bar */}
+          <header className="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-3 md:px-6 shrink-0 relative z-30 shadow-md">
+            <div 
+              onClick={() => setViewMode("landing")}
+              className="flex items-center gap-2 sm:gap-2.5 cursor-pointer hover:opacity-90 select-none group"
+              title="Go to Homepage"
+              id="header_logo_home_btn"
+            >
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-md shadow-lg shadow-indigo-500/10 shrink-0 group-hover:scale-[1.03] transition-transform">
+                AI
+              </div>
+              <div>
+                <h1 className="text-xs sm:text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5 leading-none">
+                  <span className="hidden sm:inline">AI Professional CV Builder</span>
+                  <span className="inline sm:hidden font-black">AI CV Builder</span>
+                </h1>
+                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer</p>
+              </div>
+            </div>
 
         {/* Toolbar Controls */}
         <div className="flex items-center gap-1.5 sm:gap-3">
@@ -372,11 +449,11 @@ export default function App() {
           {/* Download PDF button */}
           <button
             onClick={() => handleExport("pdf")}
-            disabled={isExporting}
+            disabled={isExporting !== null}
             className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
             id="download_pdf_btn"
           >
-            {isExporting ? (
+            {isExporting === "pdf" ? (
               <>
                 <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -397,11 +474,11 @@ export default function App() {
           {/* Download PNG button */}
           <button
             onClick={() => handleExport("png")}
-            disabled={isExporting}
+            disabled={isExporting !== null}
             className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-800 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
             id="download_png_btn"
           >
-            {isExporting ? (
+            {isExporting === "png" ? (
               <>
                 <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -422,6 +499,16 @@ export default function App() {
           {/* User Auth controls */}
           {currentUser ? (
             <div className="flex items-center gap-2 border-l border-slate-800 pl-3 ml-1.5" id="user-header-profile">
+              <button
+                onClick={() => setIsHistoryModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-400 border border-indigo-500/20 rounded-md text-xs font-bold transition select-none cursor-pointer shrink-0"
+                title="View My Dashboard & CV History"
+                id="header_dashboard_btn"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden md:inline">My Dashboard</span>
+              </button>
+
               <div className="hidden lg:flex flex-col text-right">
                 <span className="text-[11px] font-bold text-white max-w-[120px] truncate leading-none">
                   {currentUser.displayName}
@@ -448,7 +535,11 @@ export default function App() {
             </div>
           ) : (
             <button
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={() => {
+                setSuccessToast(null);
+                setErrorToast(null);
+                setIsAuthModalOpen(true);
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-650 hover:bg-indigo-600 text-white rounded-md text-xs font-bold transition select-none cursor-pointer shrink-0 ml-1.5"
               id="header_login_btn"
             >
@@ -559,6 +650,8 @@ export default function App() {
         </div>
 
       </div>
+        </>
+      )}
 
       <AuthModal 
         isOpen={isAuthModalOpen} 
@@ -566,6 +659,21 @@ export default function App() {
         onAuthSuccess={(user) => {
           setCurrentUser(user);
           setSuccessToast(`Successfully signed in as ${user.displayName}!`);
+        }}
+      />
+
+      <UserDashboard
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        currentUser={currentUser}
+        onRestoreCV={(restoredCv, restoredDesign) => {
+          setCvData(restoredCv);
+          if (restoredDesign) {
+            setDesignConfig(restoredDesign);
+          }
+          setIsHistoryModalOpen(false); // Auto close the dashboard so they view the file instantly in the editor
+          setViewMode("builder"); // Seamless transition to the builder view
+          setSuccessToast("Successfully restored chosen CV snapshot and style layout!");
         }}
       />
 

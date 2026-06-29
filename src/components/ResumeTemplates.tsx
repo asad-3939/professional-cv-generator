@@ -1004,7 +1004,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
       ref={targetRef}
       id="cv-pdf-render-target" 
       className={`w-full max-w-full origin-top select-all shadow-xl rounded-md overflow-hidden ${getFontFamilyClass()}`}
-      style={{ minHeight: '1050px', aspectRatio: '1 / 1.414', pageBreakInside: 'avoid' }}
+      style={{ minHeight: '1050px', aspectRatio: '1 / 1.414', pageBreakInside: 'avoid', backgroundColor: '#ffffff', color: '#111111' }}
     >
       {getTemplateRenderer()}
     </div>
