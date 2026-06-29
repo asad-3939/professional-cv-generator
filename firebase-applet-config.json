@@ -1,10 +1,10 @@
 {
-  "projectId": "earnest-campus-3lkqp",
-  "appId": "1:291514383272:web:d1e8c659f3db491faefb9d",
-  "apiKey": "AIzaSyDrktLNmLf9tqDSNrhXWWnjDUofExWbP4Y",
-  "authDomain": "earnest-campus-3lkqp.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-3a023f0e-17e5-42f6-9c9e-369b953e4d2b",
-  "storageBucket": "earnest-campus-3lkqp.firebasestorage.app",
-  "messagingSenderId": "291514383272",
-  "measurementId": ""
+  "projectId": "ai-cv-builder-500906",
+  "appId": "1:27196869378:web:9824a06d136c85e9e6901b",
+  "apiKey": "AIzaSyBT4Ixt1TkvyoVtd4WejES43TeNw41UaTE",
+  "authDomain": "ai-cv-builder-500906.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "ai-cv-builder-500906.firebasestorage.app",
+  "messagingSenderId": "27196869378",
+  "measurementId": "G-PXMQ1GCC6J"
 }
