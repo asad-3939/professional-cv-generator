@@ -293,7 +293,7 @@ export function Homepage({ currentUser, onStartBuilding, onSignIn, onSignOut, on
             
             {/* Direct Gmail mailto link strictly targeting the user's Gmail in metadata */}
             <a 
-              href="mailto:asadkhr39@gmail.com?subject=Inquiry regarding AI Professional CV Builder"
+              href="mailto:asadkhr8@gmail.com?subject=Inquiry regarding AI Professional CV Builder"
               className="flex items-center gap-2 px-4 py-2 bg-slate-900/60 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 border border-slate-800 hover:border-slate-700 rounded-xl transition cursor-pointer select-none font-bold"
               id="homepage_contact_link"
             >
