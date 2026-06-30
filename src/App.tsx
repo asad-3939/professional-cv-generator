@@ -331,36 +331,44 @@ export default function App() {
         setSuccessToast(`Successfully downloaded polished ${designConfig.templateId} style CV Image (PNG)!`);
       }
 
-      // Log download to Firestore subcollection if user is signed in
+      // Reset loading state immediately once download is triggered
+      setIsExporting(null);
+
+      // Log download to Firestore subcollection if user is signed in as a non-blocking background task
       if (currentUser) {
-        try {
-          const { collection, addDoc, doc, setDoc, arrayUnion, increment } = await import("firebase/firestore");
+        import("firebase/firestore").then(async ({ collection, addDoc, doc, setDoc, arrayUnion, increment }) => {
           const { db } = await import("./lib/firebase");
-          
           const newDownload = {
             timestamp: new Date().toISOString(),
             format: format,
             fileName: `${fileNameStr}_CV.${format}`
           };
 
-          // Update main user document with the count and log entry
-          await setDoc(doc(db, "users", currentUser.uid), {
+          // Update main user document with the count and log entry in the background
+          setDoc(doc(db, "users", currentUser.uid), {
             downloadsCount: increment(1),
             downloads: arrayUnion(newDownload)
-          }, { merge: true });
+          }, { merge: true }).then(() => {
+            console.log("Successfully recorded CV download count in Firestore.");
+          }).catch(err => {
+            console.error("Error updating download count in Firestore:", err);
+          });
 
-          // Also add a snapshot to history subcollection
-          await addDoc(collection(db, "users", currentUser.uid, "history"), {
+          // Also add a snapshot to history subcollection in the background
+          addDoc(collection(db, "users", currentUser.uid, "history"), {
             timestamp: new Date().toISOString(),
             format: format,
             fileName: `${fileNameStr}_CV.${format}`,
             cvData: cvData,
             designConfig: designConfig
+          }).then(() => {
+            console.log("Successfully recorded CV history snapshot in Firestore.");
+          }).catch(err => {
+            console.error("Error recording CV history in Firestore:", err);
           });
-          console.log("Successfully recorded CV download in Firestore history subcollection.");
-        } catch (fsErr) {
-          console.error("Failed to log download history:", fsErr);
-        }
+        }).catch(fsErr => {
+          console.error("Failed to import Firestore in background:", fsErr);
+        });
       }
     } catch (error: any) {
       console.error("Export crash error:", error);
