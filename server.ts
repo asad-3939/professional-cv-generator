@@ -194,7 +194,7 @@ Raw Text:
 "${text}"`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -233,7 +233,7 @@ Guidelines:
 - Return ONLY the summary text block. Do not include headings, notes, introductory statements, or chat filler.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -262,7 +262,7 @@ app.post("/api/cv/suggest-skills", async (req, res) => {
 Format the output as a clean JSON objects list.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
