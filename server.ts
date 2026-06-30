@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import firebaseConfig from "./firebase-applet-config.json";
+import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
 
 // Load local environment variables if present
 dotenv.config();
