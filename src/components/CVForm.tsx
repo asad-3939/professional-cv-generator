@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { 
   User, Briefcase, GraduationCap, Code, FileText, Settings, Award, 
-  Languages, Plus, Trash2, Palette, Sparkles, SlidersHorizontal, Loader2, Check 
+  Languages, Plus, Trash2, Palette, Sparkles, SlidersHorizontal, Loader2, Check,
+  Brain, UploadCloud, CheckCircle2, AlertCircle, TrendingUp, BarChart3, HelpCircle, FileCheck
 } from "lucide-react";
 import { CVData, DesignConfig, WorkExperience, Education, Project, Certification, Language, TemplateId } from "../types";
 import { doc, setDoc, arrayUnion } from "firebase/firestore";
@@ -13,10 +14,23 @@ interface CVFormProps {
   design: DesignConfig;
   onDesignChange: (design: DesignConfig) => void;
   currentUser: { email: string; displayName: string; uid: string } | null;
+  activeTab?: string;
+  onActiveTabChange?: (tab: string) => void;
 }
 
-export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesignChange, currentUser }) => {
-  const [activeTab, setActiveTab] = useState<string>("design");
+export const CVForm: React.FC<CVFormProps> = ({ 
+  data, 
+  onChange, 
+  design, 
+  onDesignChange, 
+  currentUser,
+  activeTab: controlledActiveTab,
+  onActiveTabChange
+}) => {
+  const [localActiveTab, setLocalActiveTab] = useState<string>("design");
+  const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : localActiveTab;
+  const setActiveTab = onActiveTabChange !== undefined ? onActiveTabChange : setLocalActiveTab;
+
   const [skillInput, setSkillInput] = useState<string>("");
   
   // Local loading states for AI features
@@ -24,6 +38,14 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
   const [isSuggestingSkills, setIsSuggestingSkills] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // States for AI Import & ATS Scoring
+  const [importText, setImportText] = useState<string>("");
+  const [isParsingCV, setIsParsingCV] = useState<boolean>(false);
+  const [atsJobDesc, setAtsJobDesc] = useState<string>("");
+  const [isAnalyzingATS, setIsAnalyzingATS] = useState<boolean>(false);
+  const [atsResult, setAtsResult] = useState<any | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Tabs layout config
   const tabs = [
@@ -275,6 +297,152 @@ export const CVForm: React.FC<CVFormProps> = ({ data, onChange, design, onDesign
       setErrorMsg(err.message || "Could not suggest skills.");
     } finally {
       setIsSuggestingSkills(false);
+    }
+  };
+
+  // File Upload Reader
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        try {
+          const parsed = JSON.parse(content);
+          if (parsed && (parsed.personal || parsed.experience || parsed.skills)) {
+            onChange(parsed);
+            setSuccessMsg("Success! Detected a structured JSON backup. Restored entire CV fields instantly.");
+            return;
+          }
+        } catch (e) {
+          // Standard text file, proceed to set import text
+        }
+        setImportText(content);
+        setSuccessMsg(`File "${file.name}" loaded successfully! Click "Parse & Import" below to structure it with Gemini.`);
+      }
+    };
+    reader.onerror = () => {
+      setErrorMsg("Failed to read the uploaded file. Please paste your text manually.");
+    };
+    reader.readAsText(file);
+  };
+
+  // AI CV Import & Parse
+  const handleAICVImport = async () => {
+    if (!importText.trim()) {
+      setErrorMsg("Please enter or paste your resume text first, or choose a file above.");
+      return;
+    }
+
+    setIsParsingCV(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const response = await fetch("/api/cv/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: importText })
+      });
+
+      let resData: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(errorText || `Request failed with status ${response.status}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(resData.error || "Failed to parse resume text");
+      }
+
+      if (resData.cvData) {
+        onChange(resData.cvData);
+        setSuccessMsg("Incredible! Gemini successfully analyzed and parsed your CV into our live fields. View and refine it on the right!");
+        setImportText(""); // Clear text area upon successful import
+        
+        // Log AI Import Event to Firestore under user if authenticated
+        if (currentUser) {
+          setDoc(doc(db, "users", currentUser.uid), {
+            cvData: resData.cvData,
+            aiGenerations: arrayUnion({
+              timestamp: new Date().toISOString(),
+              type: "AI CV Import & Parse",
+              description: `Imported and parsed existing resume of "${resData.cvData.personal?.fullName || "Professional"}"`
+            })
+          }, { merge: true }).then(() => {
+            console.log("Logged CV import event successfully to Firestore");
+          }).catch((fsErr) => {
+            console.error("Firestore log error:", fsErr);
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || "An error occurred while importing your resume.");
+    } finally {
+      setIsParsingCV(false);
+    }
+  };
+
+  // AI ATS Audit
+  const handleAIATSCheck = async () => {
+    setIsAnalyzingATS(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const response = await fetch("/api/cv/ats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cvData: data,
+          jobDescription: atsJobDesc
+        })
+      });
+
+      let resData: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(errorText || `Request failed with status ${response.status}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(resData.error || "Failed to analyze compatibility");
+      }
+
+      if (resData) {
+        setAtsResult(resData);
+        setSuccessMsg("ATS Optimization Audit Complete! Read your detailed readiness reports below.");
+
+        // Log ATS Score Event to Firestore
+        if (currentUser) {
+          setDoc(doc(db, "users", currentUser.uid), {
+            aiGenerations: arrayUnion({
+              timestamp: new Date().toISOString(),
+              type: "ATS Audit & Check",
+              description: `Conducted ATS Score Audit for role: "${data.personal?.jobTitle || "Role"}"`,
+              details: `ATS Score: ${resData.score}/100 - Rating: ${resData.rating}`
+            })
+          }, { merge: true }).then(() => {
+            console.log("Logged ATS Audit event to Firestore");
+          }).catch((fsErr) => {
+            console.error("Firestore log error:", fsErr);
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || "An error occurred during the ATS analysis.");
+    } finally {
+      setIsAnalyzingATS(false);
     }
   };
 

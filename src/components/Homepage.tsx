@@ -1,20 +1,28 @@
 import React from "react";
 import { 
   Sparkles, ShieldCheck, Zap, Award, Mail, ChevronRight, LogIn, LogOut, LayoutDashboard,
-  FileText, Star, Eye, Laptop, CheckCircle2, UserCheck, ArrowRight
+  FileText, Star, Eye, Laptop, CheckCircle2, UserCheck, ArrowRight, Plus, UploadCloud, FileCheck, Brain
 } from "lucide-react";
 import { motion } from "motion/react";
 import { TemplateId } from "../types";
 
 interface HomepageProps {
   currentUser: { email: string; displayName: string; uid: string } | null;
-  onStartBuilding: (templateId?: TemplateId) => void;
+  onStartBuilding: (templateId?: TemplateId, initialTab?: string) => void;
   onSignIn: () => void;
   onSignOut: () => void;
   onOpenDashboard: () => void;
+  onOpenAIImport: () => void;
 }
 
-export function Homepage({ currentUser, onStartBuilding, onSignIn, onSignOut, onOpenDashboard }: HomepageProps) {
+export function Homepage({ 
+  currentUser, 
+  onStartBuilding, 
+  onSignIn, 
+  onSignOut, 
+  onOpenDashboard,
+  onOpenAIImport
+}: HomepageProps) {
   
   // High fidelity mockup template cards to let users select and start directly
   const quickTemplates: { id: TemplateId; name: string; desc: string; color: string; badge: string }[] = [
@@ -124,31 +132,72 @@ export function Homepage({ currentUser, onStartBuilding, onSignIn, onSignOut, on
           Polishing resume draft points using Gemini AI, optimizing layout density in one click, and securely sync and download history logs. Stand out on every job application with confidence.
         </motion.p>
 
-        {/* Primary High-Visibility CTA */}
+        {/* Two Separate High-Visibility Actions */}
         <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-10 flex flex-col sm:flex-row items-center gap-4 justify-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl text-left"
         >
-          <button
-            onClick={() => onStartBuilding()}
-            className="group flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-2xl text-sm font-black transition shadow-2xl shadow-indigo-600/20 cursor-pointer select-none hover:scale-[1.02] active:scale-98"
-            id="homepage_hero_cta"
+          {/* Action 1: Create Fresh CV */}
+          <div 
+            onClick={() => onStartBuilding(undefined, "personal")}
+            className="group flex flex-col justify-between p-6 bg-slate-900/30 hover:bg-slate-900/60 backdrop-blur-md border border-slate-850 hover:border-indigo-500/40 rounded-2xl cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-xl hover:shadow-indigo-500/5"
+            id="homepage_action_scratch"
           >
-            <span>Create My CV</span>
-            <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
-          </button>
+            <div>
+              <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-400 w-fit mb-4 group-hover:scale-110 transition-transform">
+                <Plus className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-black text-white group-hover:text-indigo-400 transition-colors">Create Fresh CV</h3>
+              <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                Choose a pre-designed layout, fill in your details, and export an ATS-friendly PDF instantly.
+              </p>
+            </div>
+            <button className="mt-6 w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-650 group-hover:bg-indigo-600 text-white text-xs font-bold rounded-xl transition cursor-pointer select-none">
+              <span>Start from Scratch</span>
+              <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
 
-          {currentUser && (
+          {/* Action 2: Upload & Parse Previous CV */}
+          <div 
+            onClick={onOpenAIImport}
+            className="group flex flex-col justify-between p-6 bg-slate-900/30 hover:bg-slate-900/60 backdrop-blur-md border border-slate-850 hover:border-violet-500/40 rounded-2xl cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-xl hover:shadow-violet-500/5"
+            id="homepage_action_import"
+          >
+            <div>
+              <div className="p-2.5 bg-violet-500/10 rounded-xl text-violet-400 w-fit mb-4 group-hover:scale-110 transition-transform">
+                <UploadCloud className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-black text-white group-hover:text-violet-400 transition-colors">Upload & Edit CV</h3>
+              <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                Upload your previous Word document, PDF, JPEG/PNG image, or paste text. Gemini AI will parse and format it in seconds.
+              </p>
+            </div>
+            <button className="mt-6 w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-violet-650 group-hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition cursor-pointer select-none">
+              <span>Parse & Import with AI</span>
+              <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        </motion.div>
+
+        {currentUser && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mt-6"
+          >
             <button
               onClick={onOpenDashboard}
-              className="px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 rounded-2xl text-sm font-bold transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-xs font-bold transition cursor-pointer"
             >
-              Access Download Logs
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>Access Cloud Download & AI Logs</span>
             </button>
-          )}
-        </motion.div>
+          </motion.div>
+        )}
 
         {/* Stats and validation ribbon */}
         <motion.div 
@@ -289,7 +338,7 @@ export function Homepage({ currentUser, onStartBuilding, onSignIn, onSignOut, on
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
-            <span className="font-medium text-slate-400">© 2026 AI Professional CV Builder. All rights reserved.</span>
+            <span className="font-medium text-slate-400">© 2026 AI Professional CV Builder. Developed by <span className="text-indigo-400 font-bold">Asad Mustafa</span>. All rights reserved.</span>
             
             {/* Direct Gmail mailto link strictly targeting the user's Gmail in metadata */}
             <a 

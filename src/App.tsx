@@ -18,6 +18,7 @@ import { ResumeTemplates } from "./components/ResumeTemplates";
 import { AuthModal } from "./components/AuthModal";
 import { UserDashboard } from "./components/UserDashboard";
 import { Homepage } from "./components/Homepage";
+import { AIAssistantModal } from "./components/AIAssistantModal";
 
 export default function App() {
   // Load data from localStorage or fallback to template data
@@ -59,11 +60,14 @@ export default function App() {
   const [previewScale, setPreviewScale] = useState<number>(0.85);
   const [activeMobileTab, setActiveMobileTab] = useState<"edit" | "preview">("edit");
   const [viewMode, setViewMode] = useState<"landing" | "builder">("landing");
+  const [formActiveTab, setFormActiveTab] = useState<string>("personal");
 
   // User States
   const [currentUser, setCurrentUser] = useState<{ email: string; displayName: string; uid: string } | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState<boolean>(false);
+  const [aiAssistantInitialTab, setAiAssistantInitialTab] = useState<"import" | "ats">("import");
 
   const isInitialAuthCheck = useRef<boolean>(true);
 
@@ -401,9 +405,14 @@ export default function App() {
       {viewMode === "landing" ? (
         <Homepage 
           currentUser={currentUser}
-          onStartBuilding={(templateId) => {
+          onStartBuilding={(templateId, initialTab) => {
             if (templateId) {
               setDesignConfig(prev => ({ ...prev, templateId }));
+            }
+            if (initialTab) {
+              setFormActiveTab(initialTab);
+            } else {
+              setFormActiveTab("personal");
             }
             setViewMode("builder");
           }}
@@ -417,6 +426,9 @@ export default function App() {
             setSuccessToast("Signed out successfully!");
           }}
           onOpenDashboard={() => setIsHistoryModalOpen(true)}
+          onOpenAIImport={() => {
+            setIsAIAssistantOpen(true);
+          }}
         />
       ) : (
         <>
@@ -436,12 +448,25 @@ export default function App() {
                   <span className="hidden sm:inline">AI Professional CV Builder</span>
                   <span className="inline sm:hidden font-black">AI CV Builder</span>
                 </h1>
-                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer</p>
+                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer • <span className="text-indigo-400 font-semibold">developed by Asad Mustafa</span></p>
               </div>
             </div>
 
         {/* Toolbar Controls */}
         <div className="flex items-center gap-1.5 sm:gap-3">
+          
+          {/* AI Import Parser */}
+          <button
+            onClick={() => {
+              setIsAIAssistantOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
+            title="Open AI CV Parser & Importer"
+            id="header_ai_assistant_btn"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">AI CV Parser</span>
+          </button>
           
           {/* Restart/Reset draft */}
           <button
@@ -600,6 +625,8 @@ export default function App() {
             design={designConfig}
             onDesignChange={setDesignConfig}
             currentUser={currentUser}
+            activeTab={formActiveTab}
+            onActiveTabChange={setFormActiveTab}
           />
         </div>
 
@@ -682,6 +709,18 @@ export default function App() {
           setIsHistoryModalOpen(false); // Auto close the dashboard so they view the file instantly in the editor
           setViewMode("builder"); // Seamless transition to the builder view
           setSuccessToast("Successfully restored chosen CV snapshot and style layout!");
+        }}
+      />
+
+      <AIAssistantModal
+        isOpen={isAIAssistantOpen}
+        onClose={() => setIsAIAssistantOpen(false)}
+        currentCVData={cvData}
+        currentUser={currentUser}
+        onImportSuccess={(parsedCV) => {
+          setCvData(parsedCV);
+          setViewMode("builder");
+          setSuccessToast("Excellent! Gemini AI parsed and successfully populated your new CV!");
         }}
       />
 

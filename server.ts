@@ -15,7 +15,8 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // Initialize Firebase Admin safely
 const dbId = firebaseConfig.firestoreDatabaseId || "(default)";
@@ -317,6 +318,313 @@ Format the output as a clean JSON objects list.`;
   } catch (error: any) {
     console.error("Error in /api/cv/suggest-skills:", error);
     res.status(500).json({ error: error.message || "Failed to suggest skills." });
+  }
+});
+
+// 4. Import & Parse Existing Resume Text or File with Gemini
+app.post("/api/cv/import", async (req, res) => {
+  try {
+    const { text, fileData } = req.body;
+    if (!text && !fileData) {
+      res.status(400).json({ error: "Please provide resume text or file data to parse." });
+      return;
+    }
+
+    const ai = getGeminiClient();
+    const prompt = `Analyze the provided raw, unstructured resume/CV document and parse it into a highly structured JSON object matching the resume schema.
+If certain fields or sections are missing or not explicitly stated, populate them with clean defaults (empty strings or empty arrays) but DO NOT omit the keys.
+Be diligent in extracting:
+- Personal Details: Full Name, Job Title, Contact details (email, phone, location, linkedin, github, website).
+- Professional Summary.
+- Work Experience: Company name, job position, location, start and end dates (or current), and a rich description of their key achievements.
+- Education: School, degree, field of study, location, start/end dates, notes.
+- Skills: List of key tech skills, programming languages, and core competencies.
+- Projects: Project name, technologies used, description, and link if available.
+- Certifications: Name, issuer, and date.
+- Languages: Name and proficiency level.`;
+
+    const parts: any[] = [];
+    if (fileData && fileData.base64 && fileData.mimeType) {
+      parts.push({
+        inlineData: {
+          data: fileData.base64,
+          mimeType: fileData.mimeType
+        }
+      });
+      parts.push({
+        text: `${prompt}\n\nPlease parse the content of this file.`
+      });
+    } else {
+      parts.push({
+        text: `${prompt}\n\nRaw CV Text:\n"""\n${text}\n"""`
+      });
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            personal: {
+              type: Type.OBJECT,
+              properties: {
+                fullName: { type: Type.STRING },
+                jobTitle: { type: Type.STRING },
+                email: { type: Type.STRING },
+                phone: { type: Type.STRING },
+                location: { type: Type.STRING },
+                linkedin: { type: Type.STRING },
+                github: { type: Type.STRING },
+                website: { type: Type.STRING }
+              },
+              required: ["fullName", "jobTitle", "email", "phone", "location", "linkedin", "github", "website"]
+            },
+            summary: { type: Type.STRING },
+            experience: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  company: { type: Type.STRING },
+                  position: { type: Type.STRING },
+                  location: { type: Type.STRING },
+                  startDate: { type: Type.STRING },
+                  endDate: { type: Type.STRING },
+                  current: { type: Type.BOOLEAN },
+                  description: { type: Type.STRING }
+                },
+                required: ["company", "position", "location", "startDate", "endDate", "current", "description"]
+              }
+            },
+            education: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  school: { type: Type.STRING },
+                  degree: { type: Type.STRING },
+                  field: { type: Type.STRING },
+                  location: { type: Type.STRING },
+                  startDate: { type: Type.STRING },
+                  endDate: { type: Type.STRING },
+                  current: { type: Type.BOOLEAN },
+                  notes: { type: Type.STRING }
+                },
+                required: ["school", "degree", "field", "location", "startDate", "endDate", "current", "notes"]
+              }
+            },
+            skills: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            projects: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  technologies: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  link: { type: Type.STRING }
+                },
+                required: ["name", "technologies", "description", "link"]
+              }
+            },
+            certifications: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  issuer: { type: Type.STRING },
+                  date: { type: Type.STRING }
+                },
+                required: ["name", "issuer", "date"]
+              }
+            },
+            languages: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  proficiency: { type: Type.STRING }
+                },
+                required: ["name", "proficiency"]
+              }
+            }
+          },
+          required: ["personal", "summary", "experience", "education", "skills", "projects", "certifications", "languages"]
+        }
+      }
+    });
+
+    let resultText = response.text || "{}";
+    if (resultText.includes("```")) {
+      resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
+    }
+    resultText = resultText.trim();
+
+    try {
+      const parsedData = JSON.parse(resultText);
+      const generateId = () => Math.random().toString(36).substring(2, 11);
+
+      // Backfill structural IDs for absolute React compatibility
+      if (parsedData.experience && Array.isArray(parsedData.experience)) {
+        parsedData.experience = parsedData.experience.map((item: any) => ({
+          id: generateId(),
+          company: item.company || "",
+          position: item.position || "",
+          location: item.location || "",
+          startDate: item.startDate || "",
+          endDate: item.endDate || "",
+          current: !!item.current,
+          description: item.description || ""
+        }));
+      }
+      if (parsedData.education && Array.isArray(parsedData.education)) {
+        parsedData.education = parsedData.education.map((item: any) => ({
+          id: generateId(),
+          school: item.school || "",
+          degree: item.degree || "",
+          field: item.field || "",
+          location: item.location || "",
+          startDate: item.startDate || "",
+          endDate: item.endDate || "",
+          current: !!item.current,
+          notes: item.notes || ""
+        }));
+      }
+      if (parsedData.projects && Array.isArray(parsedData.projects)) {
+        parsedData.projects = parsedData.projects.map((item: any) => ({
+          id: generateId(),
+          name: item.name || "",
+          technologies: item.technologies || "",
+          description: item.description || "",
+          link: item.link || ""
+        }));
+      }
+      if (parsedData.certifications && Array.isArray(parsedData.certifications)) {
+        parsedData.certifications = parsedData.certifications.map((item: any) => ({
+          id: generateId(),
+          name: item.name || "",
+          issuer: item.issuer || "",
+          date: item.date || ""
+        }));
+      }
+      if (parsedData.languages && Array.isArray(parsedData.languages)) {
+        parsedData.languages = parsedData.languages.map((item: any) => ({
+          id: generateId(),
+          name: item.name || "",
+          proficiency: item.proficiency || ""
+        }));
+      }
+
+      res.status(200).json({ cvData: parsedData });
+    } catch (parseError) {
+      console.error("Failed to parse parsed CV JSON:", resultText, parseError);
+      res.status(500).json({ error: "Failed to assemble structured resume from Gemini output." });
+    }
+  } catch (error: any) {
+    console.error("Error in /api/cv/import:", error);
+    res.status(500).json({ error: error.message || "Failed to import resume." });
+  }
+});
+
+// 5. Run ATS Score & Optimization Audit with Gemini
+app.post("/api/cv/ats", async (req, res) => {
+  try {
+    const { cvData, jobDescription } = req.body;
+    if (!cvData) {
+      res.status(400).json({ error: "CV data is required for ATS audit." });
+      return;
+    }
+
+    const ai = getGeminiClient();
+    const prompt = `You are an expert ATS (Applicant Tracking System) recruiter and career optimization specialist.
+Analyze the provided CV/resume against the specified target job description. If no target job description is provided, run a comprehensive industry-standard audit for a "${cvData.personal?.jobTitle || "Professional"}" role.
+
+Analyze the resume for:
+1. Overall ATS compatibility score (0 to 100).
+2. Readability, formatting, layout, action verbs usage, and impact quantification.
+3. Matching keywords vs missing keywords.
+4. Specific actionable optimization steps grouped by sections of the resume.
+
+CV/Resume under analysis:
+${JSON.stringify(cvData, null, 2)}
+
+Target Job Description (Optional):
+${jobDescription ? `"""\n${jobDescription}\n"""` : "Not provided - evaluate based on standard industry expectations for: " + (cvData.personal?.jobTitle || "General Professional")}
+
+Return your analysis strictly in a clean JSON format matching the schema requested.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            score: { type: Type.INTEGER, description: "Overall compatibility/match score out of 100" },
+            rating: { type: Type.STRING, description: "Match description, e.g. 'Strong Match', 'Moderate Match', 'Needs Optimization'" },
+            summary: { type: Type.STRING, description: "High-level summary of the analysis and readiness" },
+            metrics: {
+              type: Type.OBJECT,
+              properties: {
+                skillsAlignment: { type: Type.INTEGER, description: "Skills and keywords match score from 0-100" },
+                readabilityFormatting: { type: Type.INTEGER, description: "Readability, layout, and scanning score from 0-100" },
+                impactQuantification: { type: Type.INTEGER, description: "Impact, accomplishments, and metric quantification score from 0-100" }
+              },
+              required: ["skillsAlignment", "readabilityFormatting", "impactQuantification"]
+            },
+            skillsMatch: {
+              type: Type.OBJECT,
+              properties: {
+                matched: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of relevant keywords and skills found in the resume" },
+                missing: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Important keywords and skills from the job/industry that are missing" }
+              },
+              required: ["matched", "missing"]
+            },
+            actionableSteps: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  section: { type: Type.STRING, description: "The resume section, e.g., 'Summary', 'Experience', 'Skills', 'Projects'" },
+                  finding: { type: Type.STRING, description: "What is currently lacking or could be improved" },
+                  recommendation: { type: Type.STRING, description: "Exact actionable recommendation (e.g., 'Add Python to skills', 'Rewrite bullet to quantify budget size')" },
+                  impact: { type: Type.STRING, description: "Impact level of this change: 'High', 'Medium', or 'Low'" }
+                },
+                required: ["section", "finding", "recommendation", "impact"]
+              },
+              description: "Actionable concrete steps to optimize this CV"
+            }
+          },
+          required: ["score", "rating", "summary", "metrics", "skillsMatch", "actionableSteps"]
+        }
+      }
+    });
+
+    let resultText = response.text || "{}";
+    if (resultText.includes("```")) {
+      resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
+    }
+    resultText = resultText.trim();
+
+    try {
+      const parsedAudit = JSON.parse(resultText);
+      res.status(200).json(parsedAudit);
+    } catch (parseError) {
+      console.error("Failed to parse ATS Audit JSON response:", resultText, parseError);
+      res.status(500).json({ error: "Failed to assemble structured ATS audit from Gemini output." });
+    }
+  } catch (error: any) {
+    console.error("Error in /api/cv/ats:", error);
+    res.status(500).json({ error: error.message || "Failed to run ATS audit." });
   }
 });
 
