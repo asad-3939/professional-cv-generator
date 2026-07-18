@@ -320,7 +320,7 @@ export const CVForm: React.FC<CVFormProps> = ({
           // Standard text file, proceed to set import text
         }
         setImportText(content);
-        setSuccessMsg(`File "${file.name}" loaded successfully! Click "Parse & Import" below to structure it with Gemini.`);
+        setSuccessMsg(`File "${file.name}" loaded successfully! Click "Parse & Import" below to structure it with AI.`);
       }
     };
     reader.onerror = () => {
@@ -362,7 +362,7 @@ export const CVForm: React.FC<CVFormProps> = ({
 
       if (resData.cvData) {
         onChange(resData.cvData);
-        setSuccessMsg("Incredible! Gemini successfully analyzed and parsed your CV into our live fields. View and refine it on the right!");
+        setSuccessMsg("Incredible! AI successfully analyzed and parsed your CV into our live fields. View and refine it on the right!");
         setImportText(""); // Clear text area upon successful import
         
         // Log AI Import Event to Firestore under user if authenticated

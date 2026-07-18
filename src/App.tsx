@@ -316,15 +316,40 @@ export default function App() {
         const pdf = new jsPDF({
           orientation: "portrait",
           unit: "mm",
-          format: "a4"
+          format: "a4",
+          compress: true
         });
 
-        const pdfWidth = 210; // A4 mm dimensions
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        // Configure jsPDF to use standard built-in Helvetica font which doesn't embed massive custom TTF files and takes 0 bytes
+        pdf.setFont("helvetica", "normal");
 
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`${fileNameStr}_CV.pdf`);
-        setSuccessToast(`Successfully downloaded polished ${designConfig.templateId} style CV PDF!`);
+        // Expose html2canvas globally for jsPDF's HTML renderer plugin compatibility
+        (window as any).html2canvas = html2canvas;
+
+        // Temporarily force standard system fonts on the element during export to avoid fetching or embedding any custom web fonts
+        const originalFontFamily = element.style.fontFamily;
+        element.style.fontFamily = "Helvetica, Arial, sans-serif";
+
+        pdf.html(element, {
+          html2canvas: {
+            useCORS: true,
+            logging: false,
+            backgroundColor: "#ffffff"
+          },
+          callback: function (doc) {
+            // Restore original custom font-family styles
+            element.style.fontFamily = originalFontFamily;
+            doc.save(`${fileNameStr}_CV.pdf`);
+            setSuccessToast(`Successfully downloaded polished, lightweight ${designConfig.templateId} style CV PDF!`);
+            // Reset exporting state inside the async callback
+            setIsExporting(null);
+          },
+          x: 0,
+          y: 0,
+          width: 210, // target width in the PDF document
+          windowWidth: 794, // standard window width in pixels
+          autoPaging: "text"
+        });
       } else {
         const link = document.createElement("a");
         link.download = `${fileNameStr}_CV.png`;
@@ -333,10 +358,9 @@ export default function App() {
         link.click();
         document.body.removeChild(link);
         setSuccessToast(`Successfully downloaded polished ${designConfig.templateId} style CV Image (PNG)!`);
+        // Reset exporting state immediately for synchronous PNG export
+        setIsExporting(null);
       }
-
-      // Reset loading state immediately once download is triggered
-      setIsExporting(null);
 
       // Log download to Firestore subcollection if user is signed in as a non-blocking background task
       if (currentUser) {
@@ -720,7 +744,7 @@ export default function App() {
         onImportSuccess={(parsedCV) => {
           setCvData(parsedCV);
           setViewMode("builder");
-          setSuccessToast("Excellent! Gemini AI parsed and successfully populated your new CV!");
+          setSuccessToast("Excellent! AI successfully analyzed and populated your new CV!");
         }}
       />
 

@@ -49,7 +49,7 @@ export function Homepage({
             <h1 className="text-sm md:text-base font-black text-white tracking-tight leading-none flex items-center gap-2">
               AI Professional CV Builder
             </h1>
-            <p className="text-[10px] text-slate-400 font-mono tracking-wider mt-0.5 uppercase">Powered by Gemini AI</p>
+            <p className="text-[10px] text-slate-400 font-mono tracking-wider mt-0.5 uppercase">Powered by Advanced AI</p>
           </div>
         </div>
 
@@ -129,7 +129,7 @@ export function Homepage({
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-slate-400 text-sm md:text-base mt-6 max-w-2xl leading-relaxed font-medium"
         >
-          Polishing resume draft points using Gemini AI, optimizing layout density in one click, and securely sync and download history logs. Stand out on every job application with confidence.
+          Polishing resume draft points using advanced AI, optimizing layout density in one click, and securely sync and download history logs. Stand out on every job application with confidence.
         </motion.p>
 
         {/* Two Separate High-Visibility Actions */}
@@ -172,7 +172,7 @@ export function Homepage({
               </div>
               <h3 className="text-sm font-black text-white group-hover:text-violet-400 transition-colors">Upload & Edit CV</h3>
               <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                Upload your previous Word document, PDF, JPEG/PNG image, or paste text. Gemini AI will parse and format it in seconds.
+                Upload your previous Word document, PDF, JPEG/PNG image, or paste text. Advanced AI will parse and format it in seconds.
               </p>
             </div>
             <button className="mt-6 w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-violet-650 group-hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition cursor-pointer select-none">
@@ -219,8 +219,8 @@ export function Homepage({
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">No Paywalls or Watermarks</span>
           </div>
           <div>
-            <span className="block text-2xl font-black text-indigo-400">Gemini Pro</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">LLM Generation</span>
+            <span className="block text-2xl font-black text-indigo-400">AI-Powered</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Resume Writing</span>
           </div>
         </motion.div>
       </section>
@@ -284,7 +284,7 @@ export function Homepage({
               </div>
               <h3 className="text-sm font-extrabold text-white">AI-Powered Optimization</h3>
               <p className="text-xs text-slate-400 mt-2.5 leading-relaxed">
-                Refine bullet points and craft customized professional bios in seconds using Google's state-of-the-art Gemini LLM model natively.
+                Refine bullet points and craft customized professional bios in seconds using state-of-the-art AI models natively.
               </p>
             </div>
 

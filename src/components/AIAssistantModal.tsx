@@ -72,7 +72,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
           name: file.name
         });
         setImportText(""); // Clear text if they uploaded a file instead
-        setSuccessMsg(`File "${file.name}" loaded successfully! Click "Parse & Import" below to structure it with Gemini AI.`);
+        setSuccessMsg(`File "${file.name}" loaded successfully! Click "Parse & Import" below to structure it with AI.`);
         setErrorMsg(null);
       }
     };
@@ -126,7 +126,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
 
       if (resData.cvData) {
         setParsedResult(resData.cvData);
-        setSuccessMsg("Outstanding! Gemini successfully analyzed, scanned, and compiled your resume file. Click 'Populate Fields & Start Editing' below to view it!");
+        setSuccessMsg("Outstanding! AI successfully analyzed, scanned, and compiled your resume file. Click 'Populate Fields & Start Editing' below to view it!");
         
         // Log AI Import to Firestore if signed in
         if (currentUser) {
@@ -169,7 +169,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-black text-white tracking-wide">AI CV Parser & Importer</h2>
-              <p className="text-[10px] text-slate-400">Power up your career materials using Gemini 3.5 Flash</p>
+              <p className="text-[10px] text-slate-400">Power up your career materials using Advanced AI Models</p>
             </div>
           </div>
           
@@ -278,7 +278,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
                   <div className="space-y-4">
                     <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4" />
-                      <span>Gemini AI Parser</span>
+                      <span>AI Document Parser</span>
                     </h4>
                     <p className="text-[11px] text-slate-300 leading-relaxed">
                       Our advanced AI intelligence processes files and image scans to extract:
@@ -312,12 +312,12 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
                       {isParsingCV ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Gemini Reading File...</span>
+                          <span>AI Reading File...</span>
                         </>
                       ) : (
                         <>
                           <Brain className="w-4 h-4" />
-                          <span>Parse & Import with Gemini AI</span>
+                          <span>Parse & Import with AI</span>
                         </>
                       )}
                     </button>
