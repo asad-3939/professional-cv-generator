@@ -185,7 +185,7 @@ export default function App() {
       element.style.transform = "none";
 
       // Render crisp image from HTML elements using html2canvas
-      const scaleValue = 2.5; // High output resolution (240 DPI equivalent)
+      const scaleValue = 2.0; // Optimized scale value for highly readable crisp text with lower file size (200 DPI equivalent)
       const canvas = await html2canvas(element, {
         scale: scaleValue,
         useCORS: true,
@@ -307,12 +307,14 @@ export default function App() {
       // Restore scale
       element.style.transform = originalStyle;
 
-      const imgData = canvas.toDataURL("image/png");
       const fileNameStr = cvData.personal.fullName.trim() 
         ? cvData.personal.fullName.replace(/\s+/g, "_") 
         : "Professional";
 
       if (format === "pdf") {
+        // Generate highly optimized JPEG canvas data (with compression factor 0.82) to keep size under 2MB while preserving extreme crispness
+        const imgData = canvas.toDataURL("image/jpeg", 0.82);
+
         const pdf = new jsPDF({
           orientation: "portrait",
           unit: "mm",
@@ -320,37 +322,15 @@ export default function App() {
           compress: true
         });
 
-        // Configure jsPDF to use standard built-in Helvetica font which doesn't embed massive custom TTF files and takes 0 bytes
-        pdf.setFont("helvetica", "normal");
+        const pdfWidth = 210; // A4 mm dimensions
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-        // Expose html2canvas globally for jsPDF's HTML renderer plugin compatibility
-        (window as any).html2canvas = html2canvas;
-
-        // Temporarily force standard system fonts on the element during export to avoid fetching or embedding any custom web fonts
-        const originalFontFamily = element.style.fontFamily;
-        element.style.fontFamily = "Helvetica, Arial, sans-serif";
-
-        pdf.html(element, {
-          html2canvas: {
-            useCORS: true,
-            logging: false,
-            backgroundColor: "#ffffff"
-          },
-          callback: function (doc) {
-            // Restore original custom font-family styles
-            element.style.fontFamily = originalFontFamily;
-            doc.save(`${fileNameStr}_CV.pdf`);
-            setSuccessToast(`Successfully downloaded polished, lightweight ${designConfig.templateId} style CV PDF!`);
-            // Reset exporting state inside the async callback
-            setIsExporting(null);
-          },
-          x: 0,
-          y: 0,
-          width: 210, // target width in the PDF document
-          windowWidth: 794, // standard window width in pixels
-          autoPaging: "text"
-        });
+        pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
+        pdf.save(`${fileNameStr}_CV.pdf`);
+        setSuccessToast(`Successfully downloaded polished, pixel-perfect ${designConfig.templateId} style CV PDF!`);
+        setIsExporting(null);
       } else {
+        const imgData = canvas.toDataURL("image/png");
         const link = document.createElement("a");
         link.download = `${fileNameStr}_CV.png`;
         link.href = imgData;
