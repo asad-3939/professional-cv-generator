@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { 
   Sparkles, ShieldCheck, Zap, Award, Mail, ChevronRight, LogIn, LogOut, LayoutDashboard,
-  FileText, Star, Eye, Laptop, CheckCircle2, UserCheck, ArrowRight, Plus, UploadCloud, FileCheck, Brain
+  FileText, ArrowRight, Plus, UploadCloud, Terminal, Check, Layers, ArrowUpRight, Cpu, FileCode
 } from "lucide-react";
 import { motion } from "motion/react";
 import { TemplateId } from "../types";
@@ -24,330 +24,481 @@ export function Homepage({
   onOpenAIImport
 }: HomepageProps) {
   
-  // High fidelity mockup template cards to let users select and start directly
-  const quickTemplates: { id: TemplateId; name: string; desc: string; color: string; badge: string }[] = [
-    { id: "modern", name: "Modern Elite", desc: "Sleek, high-contrast visual layout for technical leaders.", color: "from-indigo-500 to-purple-600", badge: "Most Popular" },
-    { id: "executive", name: "Executive Suite", desc: "Traditional serif styling for finance, operations, and law.", color: "from-amber-500 to-orange-600", badge: "ATS Optimized" },
-    { id: "minimalist", name: "Minimal Clean", desc: "Generous whitespace and compact layouts for design pros.", color: "from-emerald-500 to-teal-600", badge: "Designer's Pick" },
-    { id: "creative", name: "Creative Edge", desc: "Left-aligned asymmetric sidebar layout for bold roles.", color: "from-pink-500 to-rose-600", badge: "Bold Choice" },
+  const [activePreviewTab, setActivePreviewTab] = useState<"summary" | "bullets" | "ats">("bullets");
+
+  const quickTemplates: { id: TemplateId; name: string; tag: string; desc: string; specs: string }[] = [
+    { 
+      id: "modern", 
+      name: "Modern Elite", 
+      tag: "TECHNICAL & TECH LEADERSHIP", 
+      desc: "High-density two-column geometry engineered for senior engineers and product leaders.",
+      specs: "Compact • High Contrast"
+    },
+    { 
+      id: "executive", 
+      name: "Executive Suite", 
+      tag: "FINANCE, LEGAL & OPS", 
+      desc: "Editorial typography paired with classic serif headers for corporate executive roles.",
+      specs: "Traditional • Formal Serif"
+    },
+    { 
+      id: "minimalist", 
+      name: "Minimal Clean", 
+      tag: "DESIGN & PRODUCT", 
+      desc: "Generous whitespace with strict grid alignment for visual clarity and readability.",
+      specs: "Spacious • Modern Sans"
+    },
+    { 
+      id: "creative", 
+      name: "Creative Edge", 
+      tag: "STRATEGY & GROWTH", 
+      desc: "Left-accented asymmetrical column hierarchy designed to make candidate profiles stand out.",
+      specs: "Asymmetric • Bold Focus"
+    },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-hidden font-sans select-none bg-[radial-gradient(ellipse_at_top,rgba(30,41,59,0.35),rgba(2,6,23,1))]">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col relative overflow-hidden font-sans select-none">
       
-      {/* Background visual light flares */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none z-0" />
-      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[100px] pointer-events-none z-0" />
-      
-      {/* 1. Navigation Bar */}
-      <nav className="h-20 border-b border-slate-900/80 px-4 md:px-12 flex items-center justify-between relative z-10 bg-slate-950/40 backdrop-blur-md">
+      {/* Precision Grid Background Overlay */}
+      <div 
+        className="absolute inset-0 bg-[linear-gradient(to_right,#18181b_1px,transparent_1px),linear-gradient(to_bottom,#18181b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-25 pointer-events-none z-0" 
+      />
+
+      {/* 1. Header / Top Navigation */}
+      <nav className="h-18 border-b border-zinc-800/80 px-4 md:px-10 flex items-center justify-between relative z-20 bg-zinc-950/90 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-md shadow-xl shadow-indigo-500/15">
+          <div className="w-8 h-8 rounded bg-zinc-900 border border-zinc-700/80 flex items-center justify-center font-black text-indigo-400 text-xs tracking-tighter">
             AI
           </div>
-          <div>
-            <h1 className="text-sm md:text-base font-black text-white tracking-tight leading-none flex items-center gap-2">
-              AI Professional CV Builder
-            </h1>
-            <p className="text-[10px] text-slate-400 font-mono tracking-wider mt-0.5 uppercase">Powered by Advanced AI</p>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="text-xs md:text-sm font-extrabold text-zinc-100 tracking-tight">
+                AI CV BUILDER
+              </span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 bg-indigo-950/60 border border-indigo-800/60 text-indigo-400 rounded font-semibold uppercase tracking-wider">
+                v3.5
+              </span>
+            </div>
+            <span className="text-[10px] text-zinc-500 font-mono tracking-wider hidden sm:block">
+              INTELLIGENT RESUME ARCHITECTURE
+            </span>
           </div>
         </div>
 
-        {/* Auth / Action Menu */}
+        {/* Navigation Action Area */}
         <div className="flex items-center gap-3">
           {currentUser ? (
-            <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-2.5">
               <button
                 onClick={onOpenDashboard}
-                className="flex items-center gap-2 px-3 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-xs font-bold transition select-none cursor-pointer"
-                title="View My Activity Logs & CV Snapshots"
+                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 rounded-md text-xs font-semibold transition cursor-pointer"
+                title="View Saved Logs & History"
                 id="homepage_nav_dashboard"
               >
-                <LayoutDashboard className="w-3.5 h-3.5" />
+                <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" />
                 <span className="hidden sm:inline">My Dashboard</span>
               </button>
 
               <div className="hidden md:flex flex-col text-right">
-                <span className="text-[11px] font-bold text-white max-w-[120px] truncate leading-none">
+                <span className="text-xs font-bold text-zinc-200 max-w-[120px] truncate leading-none">
                   {currentUser.displayName}
                 </span>
-                <span className="text-[9px] text-slate-500 font-mono mt-0.5 truncate max-w-[120px]">
+                <span className="text-[9px] text-zinc-500 font-mono mt-0.5 truncate max-w-[120px]">
                   {currentUser.email}
                 </span>
               </div>
 
-              <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center font-extrabold text-indigo-400 text-xs shadow-md shrink-0">
+              <div className="w-7 h-7 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-indigo-400 text-xs shrink-0">
                 {currentUser.displayName.charAt(0).toUpperCase()}
               </div>
 
               <button
                 onClick={onSignOut}
-                className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs font-bold transition cursor-pointer shrink-0"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded-md text-xs font-medium transition cursor-pointer shrink-0"
                 id="homepage_nav_signout"
               >
-                <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                <LogOut className="w-3.5 h-3.5 text-zinc-500" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
           ) : (
             <button
               onClick={onSignIn}
-              className="flex items-center gap-2 px-4.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition shadow-lg shadow-indigo-600/10 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-md text-xs transition cursor-pointer tracking-tight"
               id="homepage_nav_signin"
             >
-              <LogIn className="w-4 h-4" />
+              <LogIn className="w-3.5 h-3.5" />
               <span>Sign In with Google</span>
             </button>
           )}
         </div>
       </nav>
 
-      {/* 2. Hero Section (Main Banner) */}
-      <section className="relative z-10 px-4 md:px-12 pt-12 md:pt-20 pb-16 text-center flex-grow flex flex-col items-center max-w-5xl mx-auto">
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-full text-xs font-bold mb-6 tracking-wide"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Next-Generation Resume Intelligence is Here</span>
-        </motion.div>
-
-        <motion.h1 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-4xl md:text-6xl font-black text-white tracking-tight leading-[1.1] max-w-3xl"
-        >
-          Craft Your Next Career Move with <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">Instant AI Precision</span>
-        </motion.h1>
-
-        <motion.p 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-slate-400 text-sm md:text-base mt-6 max-w-2xl leading-relaxed font-medium"
-        >
-          Polishing resume draft points using advanced AI, optimizing layout density in one click, and securely sync and download history logs. Stand out on every job application with confidence.
-        </motion.p>
-
-        {/* Two Separate High-Visibility Actions */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl text-left"
-        >
-          {/* Action 1: Create Fresh CV */}
-          <div 
-            onClick={() => onStartBuilding(undefined, "personal")}
-            className="group flex flex-col justify-between p-6 bg-slate-900/30 hover:bg-slate-900/60 backdrop-blur-md border border-slate-850 hover:border-indigo-500/40 rounded-2xl cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-xl hover:shadow-indigo-500/5"
-            id="homepage_action_scratch"
-          >
-            <div>
-              <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-400 w-fit mb-4 group-hover:scale-110 transition-transform">
-                <Plus className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-black text-white group-hover:text-indigo-400 transition-colors">Create Fresh CV</h3>
-              <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                Choose a pre-designed layout, fill in your details, and export an ATS-friendly PDF instantly.
-              </p>
-            </div>
-            <button className="mt-6 w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-650 group-hover:bg-indigo-600 text-white text-xs font-bold rounded-xl transition cursor-pointer select-none">
-              <span>Start from Scratch</span>
-              <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
-
-          {/* Action 2: Upload & Parse Previous CV */}
-          <div 
-            onClick={onOpenAIImport}
-            className="group flex flex-col justify-between p-6 bg-slate-900/30 hover:bg-slate-900/60 backdrop-blur-md border border-slate-850 hover:border-violet-500/40 rounded-2xl cursor-pointer transition-all duration-300 hover:-translate-y-1 shadow-xl hover:shadow-violet-500/5"
-            id="homepage_action_import"
-          >
-            <div>
-              <div className="p-2.5 bg-violet-500/10 rounded-xl text-violet-400 w-fit mb-4 group-hover:scale-110 transition-transform">
-                <UploadCloud className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-black text-white group-hover:text-violet-400 transition-colors">Upload & Edit CV</h3>
-              <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                Upload your previous Word document, PDF, JPEG/PNG image, or paste text. Advanced AI will parse and format it in seconds.
-              </p>
-            </div>
-            <button className="mt-6 w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-violet-650 group-hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition cursor-pointer select-none">
-              <span>Parse & Import with AI</span>
-              <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
-        </motion.div>
-
-        {currentUser && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="mt-6"
-          >
-            <button
-              onClick={onOpenDashboard}
-              className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-xs font-bold transition cursor-pointer"
+      {/* 2. Asymmetric Hero Section */}
+      <section className="relative z-10 px-4 md:px-10 pt-10 md:pt-16 pb-16 max-w-7xl mx-auto w-full flex-grow flex flex-col justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+          
+          {/* Left Column: Editorial Headline & Actions (7 cols) */}
+          <div className="lg:col-span-7 space-y-6 text-left">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900 border border-zinc-800 rounded text-xs font-mono text-zinc-300"
             >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Access Cloud Download & AI Logs</span>
-            </button>
-          </motion.div>
-        )}
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+              <span className="text-zinc-400">ENGINE:</span>
+              <span className="text-indigo-400 font-semibold">ATS-COMPLIANT VECTOR MATRIX</span>
+            </motion.div>
 
-        {/* Stats and validation ribbon */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.5 }}
-          className="mt-12 pt-8 border-t border-slate-900/60 w-full grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-slate-500"
-        >
-          <div>
-            <span className="block text-2xl font-black text-white">10,000+</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Resumes Formatted</span>
-          </div>
-          <div>
-            <span className="block text-2xl font-black text-white">99.4%</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">ATS Acceptance Rate</span>
-          </div>
-          <div>
-            <span className="block text-2xl font-black text-emerald-400">100% Free</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">No Paywalls or Watermarks</span>
-          </div>
-          <div>
-            <span className="block text-2xl font-black text-indigo-400">AI-Powered</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Resume Writing</span>
-          </div>
-        </motion.div>
-      </section>
+            <motion.h1 
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="text-3xl sm:text-5xl lg:text-6xl font-black text-zinc-100 tracking-tight leading-[1.08] uppercase"
+            >
+              ENGINEER YOUR CAREER NARRATIVE WITH <span className="text-indigo-400 underline decoration-indigo-500/40 underline-offset-8">ATOMIC PRECISION</span>
+            </motion.h1>
 
-      {/* Modern Card Template Chooser Showcase */}
-      <section className="px-4 md:px-12 py-10 max-w-6xl mx-auto relative z-10 w-full">
-        <div className="text-center mb-8">
-          <h3 className="text-xs font-bold text-indigo-400 tracking-widest uppercase">Visual Layouts</h3>
-          <h2 className="text-xl font-black text-white mt-1">Start Instantly from Any Layout Style</h2>
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {quickTemplates.map((tpl) => (
-            <div 
-              key={tpl.id}
-              onClick={() => onStartBuilding(tpl.id)}
-              className="p-5 bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 rounded-2xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer text-left flex flex-col justify-between h-44"
+            <motion.p 
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl font-normal"
+            >
+              A high-performance CV builder designed for engineers, executives, and specialists. Parse legacy files, optimize impact bullets with AI, and output sub-3MB print-ready vector PDFs in seconds.
+            </motion.p>
+
+            {/* Quick Action Matrix */}
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+              className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
+            >
+              <button
+                onClick={() => onStartBuilding(undefined, "personal")}
+                className="flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs uppercase tracking-wider rounded transition cursor-pointer select-none group"
+                id="homepage_action_scratch"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Build From Scratch</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              <button
+                onClick={onOpenAIImport}
+                className="flex items-center justify-center gap-2 px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 font-bold text-xs uppercase tracking-wider rounded transition cursor-pointer select-none group"
+                id="homepage_action_import"
+              >
+                <UploadCloud className="w-4 h-4 text-indigo-400" />
+                <span>Upload & AI Parse File</span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-zinc-400 group-hover:text-indigo-400 transition-colors" />
+              </button>
+            </motion.div>
+
+            {/* Key Metrics Strip */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="pt-6 border-t border-zinc-900 grid grid-cols-3 gap-4 text-left font-mono"
             >
               <div>
-                <div className="flex justify-between items-start">
-                  <span className={`text-[9px] px-2 py-0.5 bg-gradient-to-r ${tpl.color} rounded-full font-bold text-white uppercase tracking-wider`}>
-                    {tpl.badge}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
-                </div>
-                <h4 className="text-sm font-black text-white mt-3.5 group-hover:text-indigo-400 transition-colors">
-                  {tpl.name}
-                </h4>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  {tpl.desc}
-                </p>
+                <span className="block text-xl font-extrabold text-zinc-100">100%</span>
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest">ATS Compliance</span>
               </div>
-              
-              <span className="text-[10px] font-bold text-slate-500 group-hover:text-white transition-colors flex items-center gap-1 mt-4">
-                <span>Configure layout</span>
-                <ArrowRight className="w-3 h-3 text-slate-500 group-hover:text-white transition-transform group-hover:translate-x-0.5" />
+              <div>
+                <span className="block text-xl font-extrabold text-indigo-400">&lt; 3 MB</span>
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Vector Export</span>
+              </div>
+              <div>
+                <span className="block text-xl font-extrabold text-zinc-100">$0</span>
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Zero Watermarks</span>
+              </div>
+            </motion.div>
+
+          </div>
+
+          {/* Right Column: Live Interactive Architecture Preview Component (5 cols) */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="lg:col-span-5 bg-zinc-900/80 border border-zinc-800 rounded-lg p-5 shadow-2xl relative overflow-hidden text-left"
+          >
+            {/* Terminal Top Bar */}
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-zinc-800 font-mono text-[10px]">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                <span className="text-zinc-500 ml-2">LIVE_CANVAS_PREVIEW.PDF</span>
+              </div>
+              <span className="text-indigo-400 font-bold px-1.5 py-0.5 bg-indigo-950/60 border border-indigo-800/50 rounded">
+                OPTIMIZED (200 DPI)
               </span>
             </div>
-          ))}
+
+            {/* Interactive Preview Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-zinc-950 rounded border border-zinc-800 mb-4 font-mono text-[10px]">
+              <button 
+                onClick={() => setActivePreviewTab("bullets")}
+                className={`flex-1 py-1 px-2 rounded font-semibold transition ${
+                  activePreviewTab === "bullets" ? "bg-zinc-800 text-indigo-400" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                AI Bullet Polish
+              </button>
+              <button 
+                onClick={() => setActivePreviewTab("summary")}
+                className={`flex-1 py-1 px-2 rounded font-semibold transition ${
+                  activePreviewTab === "summary" ? "bg-zinc-800 text-indigo-400" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Executive Bio
+              </button>
+              <button 
+                onClick={() => setActivePreviewTab("ats")}
+                className={`flex-1 py-1 px-2 rounded font-semibold transition ${
+                  activePreviewTab === "ats" ? "bg-zinc-800 text-indigo-400" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                ATS Audit
+              </button>
+            </div>
+
+            {/* Mini Document Simulation Box */}
+            <div className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-3 font-sans">
+              <div className="flex justify-between items-start border-b border-zinc-850 pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-zinc-100 tracking-tight">ALEXANDER V. MORGAN</h4>
+                  <p className="text-[10px] text-indigo-400 font-mono">STAFF SOFTWARE ENGINEER & SYSTEMS ARCHITECT</p>
+                </div>
+                <div className="text-[9px] text-zinc-500 font-mono text-right">
+                  <span>SAN FRANCISCO, CA</span>
+                  <br />
+                  <span>ALEX@DEV.IO</span>
+                </div>
+              </div>
+
+              {activePreviewTab === "bullets" && (
+                <div className="space-y-2 text-[11px] leading-relaxed">
+                  <div className="flex items-center gap-2 font-mono text-[9px] text-zinc-400 uppercase tracking-wider">
+                    <Sparkles className="w-3 h-3 text-indigo-400" />
+                    <span>AI Enhanced Impact Bullets</span>
+                  </div>
+                  <div className="p-2 bg-zinc-900/90 border border-zinc-800 rounded text-zinc-300 space-y-1.5 font-sans">
+                    <p className="flex items-start gap-1.5">
+                      <span className="text-indigo-400 font-bold">•</span>
+                      <span>Architected high-throughput microservices handling 45M+ daily requests with 99.99% uptime.</span>
+                    </p>
+                    <p className="flex items-start gap-1.5">
+                      <span className="text-indigo-400 font-bold">•</span>
+                      <span>Reduced PDF rendering memory overhead by 84% utilizing client-side canvas compression algorithms.</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activePreviewTab === "summary" && (
+                <div className="space-y-2 text-[11px] leading-relaxed">
+                  <div className="flex items-center gap-2 font-mono text-[9px] text-zinc-400 uppercase tracking-wider">
+                    <FileText className="w-3 h-3 text-indigo-400" />
+                    <span>Structured Professional Narrative</span>
+                  </div>
+                  <p className="p-2 bg-zinc-900/90 border border-zinc-800 rounded text-zinc-300 text-[10.5px]">
+                    Technical leader with 8+ years driving distributed backend architecture, cloud data pipelines, and developer tooling. Proven track record scaling engineering teams and building ATS-validated executive resumes.
+                  </p>
+                </div>
+              )}
+
+              {activePreviewTab === "ats" && (
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex justify-between items-center font-mono text-[9px] text-zinc-400 uppercase">
+                    <span>ATS Machine Scanner Verification</span>
+                    <span className="text-indigo-400 font-bold">SCORE: 98/100</span>
+                  </div>
+                  <div className="p-2 bg-zinc-900/90 border border-zinc-800 rounded space-y-1.5 text-[10px]">
+                    <div className="flex items-center justify-between text-zinc-300">
+                      <span className="flex items-center gap-1"><Check className="w-3 h-3 text-indigo-400" /> Parseable Font Hierarchy</span>
+                      <span className="font-mono text-indigo-400">PASSED</span>
+                    </div>
+                    <div className="flex items-center justify-between text-zinc-300">
+                      <span className="flex items-center gap-1"><Check className="w-3 h-3 text-indigo-400" /> Standard Section Headings</span>
+                      <span className="font-mono text-indigo-400">PASSED</span>
+                    </div>
+                    <div className="flex items-center justify-between text-zinc-300">
+                      <span className="flex items-center gap-1"><Check className="w-3 h-3 text-indigo-400" /> Keyword Density Index</span>
+                      <span className="font-mono text-indigo-400">OPTIMAL</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-between font-mono text-[9px] text-zinc-500 border-t border-zinc-850">
+                <span>PDF SIZE: 1.2 MB</span>
+                <span>FONTS: COMPRESSED</span>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between text-xs">
+              <span className="text-zinc-400 font-mono text-[10px]">READY TO BUILD YOURS?</span>
+              <button 
+                onClick={() => onStartBuilding(undefined, "personal")}
+                className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer transition"
+              >
+                <span>Launch Builder</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </motion.div>
+
         </div>
       </section>
 
-      {/* 3. Benefits / Features Section */}
-      <section className="px-4 md:px-12 py-16 md:py-24 bg-slate-950/80 border-t border-slate-900 relative z-10">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <span className="text-xs font-bold text-indigo-400 tracking-widest uppercase">Engineered for Excellence</span>
-            <h2 className="text-3xl font-black text-white mt-2 tracking-tight">
-              Powerful Core Features Built for High-Performance Candidates
-            </h2>
-            <p className="text-slate-400 text-xs md:text-sm mt-3 leading-relaxed">
-              We combined advanced semantic language models with clean design standards to deliver a premium CV builder that increases your visibility to hiring managers.
+      {/* 3. Structural Archetype Selector Showcase */}
+      <section className="px-4 md:px-10 py-16 border-t border-zinc-900 bg-zinc-950/60 relative z-10 w-full">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4 text-left">
+            <div>
+              <span className="text-[10px] font-mono font-bold text-indigo-400 tracking-widest uppercase block mb-1">
+                // SELECT YOUR STRUCTURAL ARCHETYPE
+              </span>
+              <h2 className="text-2xl md:text-3xl font-black text-zinc-100 tracking-tight uppercase">
+                Purpose-Built Layout Templates
+              </h2>
+            </div>
+            <p className="text-xs text-zinc-400 max-w-md font-normal leading-relaxed">
+              Every layout is meticulously configured for ATS parsing engines and senior recruiter scanning patterns.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Feature 1 */}
-            <div className="p-6 bg-slate-900/30 border border-slate-800/80 hover:border-slate-700 rounded-2xl text-left transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-5 border border-purple-500/20">
-                <Sparkles className="w-5 h-5" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {quickTemplates.map((tpl) => (
+              <div 
+                key={tpl.id}
+                onClick={() => onStartBuilding(tpl.id)}
+                className="p-5 bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded transition-all duration-200 cursor-pointer text-left flex flex-col justify-between group h-52 relative overflow-hidden"
+              >
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[9px] font-mono px-2 py-0.5 bg-zinc-800 text-indigo-400 border border-zinc-700 rounded font-semibold uppercase tracking-wider">
+                      {tpl.specs}
+                    </span>
+                    <ArrowUpRight className="w-4 h-4 text-zinc-500 group-hover:text-indigo-400 transition-colors" />
+                  </div>
+                  <h3 className="text-sm font-black text-zinc-100 group-hover:text-indigo-400 transition-colors uppercase tracking-tight">
+                    {tpl.name}
+                  </h3>
+                  <p className="text-[9px] font-mono text-zinc-500 mt-0.5 tracking-wider uppercase">
+                    {tpl.tag}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-2.5 leading-relaxed">
+                    {tpl.desc}
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-zinc-850 flex items-center justify-between text-[11px] font-bold text-zinc-400 group-hover:text-zinc-200 transition-colors">
+                  <span>Load archetype</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-indigo-400 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
-              <h3 className="text-sm font-extrabold text-white">AI-Powered Optimization</h3>
-              <p className="text-xs text-slate-400 mt-2.5 leading-relaxed">
-                Refine bullet points and craft customized professional bios in seconds using state-of-the-art AI models natively.
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Core Capabilities Matrix */}
+      <section className="px-4 md:px-10 py-16 md:py-20 border-t border-zinc-900 bg-zinc-950 relative z-10">
+        <div className="max-w-7xl mx-auto text-left">
+          <div className="mb-12">
+            <span className="text-[10px] font-mono font-bold text-indigo-400 tracking-widest uppercase block mb-1">
+              // ARCHITECTURAL CAPABILITIES
+            </span>
+            <h2 className="text-2xl md:text-3xl font-black text-zinc-100 tracking-tight uppercase">
+              Engineered For Modern Career Professionals
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Capability 1 */}
+            <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded text-left hover:border-zinc-700 transition">
+              <span className="font-mono text-xs text-indigo-400 font-bold block mb-3">01 // AI OPTIMIZER</span>
+              <div className="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-indigo-400 mb-4">
+                <Cpu className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-extrabold text-zinc-100 uppercase tracking-tight">Impact Bullet Engine</h3>
+              <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+                Transform weak job duties into quantified achievement metrics using advanced language analysis.
               </p>
             </div>
 
-            {/* Feature 2 */}
-            <div className="p-6 bg-slate-900/30 border border-slate-800/80 hover:border-slate-700 rounded-2xl text-left transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-5 border border-indigo-500/20">
-                <ShieldCheck className="w-5 h-5" />
+            {/* Capability 2 */}
+            <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded text-left hover:border-zinc-700 transition">
+              <span className="font-mono text-xs text-indigo-400 font-bold block mb-3">02 // DOCUMENT PARSER</span>
+              <div className="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-indigo-400 mb-4">
+                <FileCode className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-extrabold text-white">Secure Data & History</h3>
-              <p className="text-xs text-slate-400 mt-2.5 leading-relaxed">
-                Save your CV data draft dynamically to Google Firebase Firestore. Safely access and open past download snapshots via your Dashboard.
+              <h3 className="text-sm font-extrabold text-zinc-100 uppercase tracking-tight">Smart Resume Import</h3>
+              <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+                Upload Word, PDF, or raw text files. The parser extracts experience, education, and skills seamlessly.
               </p>
             </div>
 
-            {/* Feature 3 */}
-            <div className="p-6 bg-slate-900/30 border border-slate-800/80 hover:border-slate-700 rounded-2xl text-left transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-5 border border-cyan-500/20">
-                <Award className="w-5 h-5" />
+            {/* Capability 3 */}
+            <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded text-left hover:border-zinc-700 transition">
+              <span className="font-mono text-xs text-indigo-400 font-bold block mb-3">03 // FIREBASE VAULT</span>
+              <div className="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-indigo-400 mb-4">
+                <ShieldCheck className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-extrabold text-white">ATS-Friendly Layouts</h3>
-              <p className="text-xs text-slate-400 mt-2.5 leading-relaxed">
-                Our templates are structured with single-column layouts and proper margins to ensure 100% compliance with corporate recruiters' scanners.
+              <h3 className="text-sm font-extrabold text-zinc-100 uppercase tracking-tight">Firestore Cloud Autosave</h3>
+              <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+                All changes sync seamlessly to Firebase Firestore. Revisit previous CV snapshots anytime from your Dashboard.
               </p>
             </div>
 
-            {/* Feature 4 */}
-            <div className="p-6 bg-slate-900/30 border border-slate-800/80 hover:border-slate-700 rounded-2xl text-left transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-5 border border-emerald-500/20">
-                <Zap className="w-5 h-5" />
+            {/* Capability 4 */}
+            <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded text-left hover:border-zinc-700 transition">
+              <span className="font-mono text-xs text-indigo-400 font-bold block mb-3">04 // VECTOR PDF</span>
+              <div className="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-indigo-400 mb-4">
+                <Zap className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-extrabold text-white">100% Free & Speed</h3>
-              <p className="text-xs text-slate-400 mt-2.5 leading-relaxed">
-                Instant high-resolution PDF or PNG file exports. Zero hidden fees, zero paywalls, and absolutely no branding watermarks.
+              <h3 className="text-sm font-extrabold text-zinc-100 uppercase tracking-tight">Sub-3MB Crisp Output</h3>
+              <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+                Pixel-perfect 200 DPI canvas rendering. High resolution, zero paywalls, and zero branding watermarks.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4. Footer / Contact Us Section */}
-      <footer className="border-t border-slate-900 bg-slate-950 px-4 md:px-12 py-12 relative z-10 text-slate-500 text-xs">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+      {/* 5. Clean Architectural Footer */}
+      <footer className="border-t border-zinc-900 bg-zinc-950 px-4 md:px-10 py-10 relative z-10 text-zinc-500 text-xs">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-black text-slate-300 text-xs shrink-0">
+            <div className="w-7 h-7 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center font-black text-indigo-400 text-xs shrink-0">
               AI
             </div>
             <div className="text-left">
-              <p className="font-bold text-slate-300">AI Professional CV Builder</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Build a high-performance career narrative instantly.</p>
+              <p className="font-bold text-zinc-200">AI PROFESSIONAL CV BUILDER</p>
+              <p className="text-[10px] text-zinc-500 font-mono">INTELLIGENT CAREER MATERIAL ARCHITECTURE</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
-            <span className="font-medium text-slate-400">© 2026 AI Professional CV Builder. Developed by <span className="text-indigo-400 font-bold">Asad Mustafa</span>. All rights reserved.</span>
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            <span className="font-medium text-zinc-400">
+              © 2026 AI Professional CV Builder. Developed by <span className="text-indigo-400 font-bold">Asad Mustafa</span>.
+            </span>
             
-            {/* Direct Gmail mailto link strictly targeting the user's Gmail in metadata */}
             <a 
               href="mailto:asadkhr8@gmail.com?subject=Inquiry regarding AI Professional CV Builder"
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900/60 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 border border-slate-800 hover:border-slate-700 rounded-xl transition cursor-pointer select-none font-bold"
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded text-xs transition cursor-pointer select-none font-bold"
               id="homepage_contact_link"
             >
-              <Mail className="w-3.5 h-3.5" />
-              <span>Contact Us</span>
+              <Mail className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Contact Developer</span>
             </a>
           </div>
         </div>
@@ -356,3 +507,4 @@ export function Homepage({
     </div>
   );
 }
+
