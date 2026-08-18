@@ -352,18 +352,18 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
               <LayoutDashboardIcon className="w-5 h-5" />
             </span>
             <div>
-              <h2 className="text-lg font-black text-white tracking-tight" id="dashboard-title">
-                My Dashboard & CV History
+              <h2 className="text-base font-bold text-white tracking-tight" id="dashboard-title">
+                Saved Resumes & Exports
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Real-time activity logs synced to <span className="font-mono text-indigo-400">{currentUser.email}</span>
+                Version history synced to <span className="font-mono text-indigo-400">{currentUser.email}</span>
               </p>
             </div>
           </div>
           
           <button 
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800/80 transition cursor-pointer"
+            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition cursor-pointer"
             id="close-dashboard-btn"
           >
             <XIcon className="w-5 h-5" />
@@ -373,26 +373,26 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
         {/* Quick Bento Stats Section */}
         <div className="px-6 py-4 bg-slate-950/50 border-b border-slate-800/50 grid grid-cols-3 gap-4 shrink-0">
           <div className="p-3 bg-slate-900 border border-slate-800/60 rounded-xl flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Downloads</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Exports</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-white" id="dashboard-stat-downloads">{downloadsCount}</span>
-              <span className="text-[10px] font-semibold text-indigo-400">times</span>
+              <span className="text-xl font-bold text-white" id="dashboard-stat-downloads">{downloadsCount}</span>
+              <span className="text-[10px] font-medium text-slate-400">files</span>
             </div>
           </div>
 
           <div className="p-3 bg-slate-900 border border-slate-800/60 rounded-xl flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">AI Profiles Run</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Enhancements</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-indigo-400" id="dashboard-stat-ai">{aiGenerationsList.length}</span>
-              <span className="text-[10px] font-semibold text-slate-400">events</span>
+              <span className="text-xl font-bold text-indigo-400" id="dashboard-stat-ai">{aiGenerationsList.length}</span>
+              <span className="text-[10px] font-medium text-slate-400">actions</span>
             </div>
           </div>
 
           <div className="p-3 bg-slate-900 border border-slate-800/60 rounded-xl flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Storage Status</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cloud Sync</span>
             <div className="flex items-baseline gap-1 mt-1">
               <DatabaseIcon className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-xs font-bold text-emerald-400">Firestore Cloud</span>
+              <span className="text-xs font-semibold text-emerald-400">Connected</span>
             </div>
           </div>
         </div>
@@ -402,24 +402,24 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab("downloads")}
-              className={`py-3.5 text-xs font-bold uppercase tracking-wider relative transition cursor-pointer ${
-                activeTab === "downloads" ? "text-indigo-400" : "text-slate-400 hover:text-slate-200"
+              className={`py-3 text-xs font-semibold relative transition cursor-pointer ${
+                activeTab === "downloads" ? "text-indigo-400 font-bold" : "text-slate-400 hover:text-slate-200"
               }`}
               id="tab-downloads-history"
             >
-              Downloads List ({downloadsList.length})
+              Export Snapshots ({downloadsList.length})
               {activeTab === "downloads" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
               )}
             </button>
             <button
               onClick={() => setActiveTab("ai")}
-              className={`py-3.5 text-xs font-bold uppercase tracking-wider relative transition cursor-pointer ${
-                activeTab === "ai" ? "text-indigo-400" : "text-slate-400 hover:text-slate-200"
+              className={`py-3 text-xs font-semibold relative transition cursor-pointer ${
+                activeTab === "ai" ? "text-indigo-400 font-bold" : "text-slate-400 hover:text-slate-200"
               }`}
               id="tab-ai-history"
             >
-              AI Generations ({aiGenerationsList.length})
+              Enhancement Log ({aiGenerationsList.length})
               {activeTab === "ai" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
               )}
@@ -429,11 +429,11 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
           <button
             onClick={fetchUserData}
             disabled={loading}
-            className="text-slate-400 hover:text-white transition flex items-center gap-1.5 text-[10px] font-mono tracking-wider cursor-pointer"
+            className="text-slate-400 hover:text-white transition flex items-center gap-1.5 text-xs font-medium cursor-pointer"
             id="refresh-dashboard-btn"
           >
             <RefreshCwIcon className={`w-3.5 h-3.5 ${loading ? "animate-spin text-indigo-400" : ""}`} />
-            <span>Sync Live</span>
+            <span>Sync</span>
           </button>
         </div>
 

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { 
-  User, Briefcase, GraduationCap, Code, FileText, Settings, Award, 
+  User, Briefcase, GraduationCap, Code, FileText, Award, 
   Languages, Plus, Trash2, Palette, Sparkles, SlidersHorizontal, Loader2, Check,
-  Brain, UploadCloud, CheckCircle2, AlertCircle, TrendingUp, BarChart3, HelpCircle, FileCheck
+  ExternalLink, Layers, ChevronRight
 } from "lucide-react";
 import { CVData, DesignConfig, WorkExperience, Education, Project, Certification, Language, TemplateId } from "../types";
 import { doc, setDoc, arrayUnion } from "firebase/firestore";
@@ -33,34 +33,27 @@ export const CVForm: React.FC<CVFormProps> = ({
 
   const [skillInput, setSkillInput] = useState<string>("");
   
-  // Local loading states for AI features
+  // Loading states for smart assistance features
   const [polishingId, setPolishingId] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
   const [isSuggestingSkills, setIsSuggestingSkills] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // States for AI Import & ATS Scoring
-  const [importText, setImportText] = useState<string>("");
-  const [isParsingCV, setIsParsingCV] = useState<boolean>(false);
-  const [atsJobDesc, setAtsJobDesc] = useState<string>("");
-  const [isAnalyzingATS, setIsAnalyzingATS] = useState<boolean>(false);
-  const [atsResult, setAtsResult] = useState<any | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Tabs layout config
+  // Tabs navigation config
   const tabs = [
-    { id: "design", label: "Styles & Config", icon: <SlidersHorizontal className="w-4 h-4" /> },
-    { id: "personal", label: "Personal Info", icon: <User className="w-4 h-4" /> },
-    { id: "summary", label: "Profile Summary", icon: <FileText className="w-4 h-4" /> },
-    { id: "experience", label: "Experience", icon: <Briefcase className="w-4 h-4" /> },
-    { id: "education", label: "Education", icon: <GraduationCap className="w-4 h-4" /> },
-    { id: "skills", label: "Skills", icon: <Code className="w-4 h-4" /> },
-    { id: "projects", label: "Projects", icon: <Award className="w-4 h-4" /> },
-    { id: "certifications", label: "Credentials", icon: <Award className="w-4 h-4" /> },
-    { id: "languages", label: "Languages", icon: <Languages className="w-4 h-4" /> },
+    { id: "design", label: "Template & Style", icon: <SlidersHorizontal className="w-3.5 h-3.5" /> },
+    { id: "personal", label: "Personal Info", icon: <User className="w-3.5 h-3.5" /> },
+    { id: "summary", label: "Summary", icon: <FileText className="w-3.5 h-3.5" /> },
+    { id: "experience", label: "Experience", icon: <Briefcase className="w-3.5 h-3.5" /> },
+    { id: "education", label: "Education", icon: <GraduationCap className="w-3.5 h-3.5" /> },
+    { id: "skills", label: "Skills", icon: <Code className="w-3.5 h-3.5" /> },
+    { id: "projects", label: "Projects", icon: <Award className="w-3.5 h-3.5" /> },
+    { id: "certifications", label: "Certifications", icon: <Award className="w-3.5 h-3.5" /> },
+    { id: "languages", label: "Languages", icon: <Languages className="w-3.5 h-3.5" /> },
   ];
 
-  // Helper to trigger overall state updates
+  // Helper to trigger personal state updates
   const updatePersonal = (field: string, value: string) => {
     onChange({
       ...data,
@@ -75,11 +68,11 @@ export const CVForm: React.FC<CVFormProps> = ({
     onChange({ ...data, summary: e.target.value });
   };
 
-  // AI 1: Generate Professional Summary based on target role & skills
-  const handleAIGenerateSummary = async () => {
+  // Smart feature 1: Generate Professional Summary
+  const handleAutoGenerateSummary = async () => {
     const jobTitle = data.personal.jobTitle;
     if (!jobTitle) {
-      setErrorMsg("Please fill in a Job Title in 'Personal Info' first so we can tailor the profile.");
+      setErrorMsg("Please enter a Target Job Title in 'Personal Info' first so we can tailor the summary.");
       setActiveTab("personal");
       return;
     }
@@ -88,7 +81,6 @@ export const CVForm: React.FC<CVFormProps> = ({
     setErrorMsg(null);
 
     try {
-      // Gather experience details to feed into AI
       const highlights = data.experience.map(exp => `${exp.position} at ${exp.company}`);
       const response = await fetch("/api/cv/summary", {
         method: "POST",
@@ -116,25 +108,18 @@ export const CVForm: React.FC<CVFormProps> = ({
       if (resData.summary) {
         const updatedData = { ...data, summary: resData.summary };
         onChange(updatedData);
+        setSuccessMsg("Generated professional summary tailored to your experience.");
 
-        // Save generated profile to users collection under their unique User ID if logged in (non-blocking)
         if (currentUser) {
           setDoc(doc(db, "users", currentUser.uid), {
-            email: currentUser.email,
-            fullName: updatedData.personal.fullName || currentUser.displayName || "",
-            createdAt: new Date().toISOString(),
             cvData: updatedData,
             aiGenerations: arrayUnion({
               timestamp: new Date().toISOString(),
-              type: "AI Summary Generation",
-              description: `Generated professional summary for "${updatedData.personal.jobTitle || "Resume"}"`,
+              type: "Summary Generation",
+              description: `Generated summary for "${updatedData.personal.jobTitle || "Resume"}"`,
               details: resData.summary.substring(0, 150) + "..."
             })
-          }, { merge: true }).then(() => {
-            console.log("Successfully saved generated profile to Firestore for uid:", currentUser.uid);
-          }).catch((fsErr) => {
-            console.error("Error saving profile to Firestore:", fsErr);
-          });
+          }, { merge: true }).catch(console.error);
         }
       }
     } catch (err: any) {
@@ -145,10 +130,10 @@ export const CVForm: React.FC<CVFormProps> = ({
     }
   };
 
-  // AI 2: Polish Experience Bullet Points
-  const handleAIPolishExperience = async (id: string, currentText: string) => {
+  // Smart feature 2: Enhance Experience Bullets
+  const handleEnhanceExperience = async (id: string, currentText: string) => {
     if (!currentText.trim()) {
-      setErrorMsg("Please add some experience details first before polishing.");
+      setErrorMsg("Please enter some bullet points or notes first before formatting.");
       return;
     }
 
@@ -178,7 +163,7 @@ export const CVForm: React.FC<CVFormProps> = ({
       }
 
       if (!response.ok) {
-        throw new Error(resData.error || "Failed to polish text");
+        throw new Error(resData.error || "Failed to enhance text");
       }
 
       if (resData.polishedText) {
@@ -191,37 +176,32 @@ export const CVForm: React.FC<CVFormProps> = ({
         const updatedData = { ...data, experience: updatedExp };
         onChange(updatedData);
 
-        // Save generated profile/history to Firestore under their unique User ID if logged in (non-blocking)
         if (currentUser) {
           const expItem = data.experience.find(exp => exp.id === id);
           setDoc(doc(db, "users", currentUser.uid), {
             cvData: updatedData,
             aiGenerations: arrayUnion({
               timestamp: new Date().toISOString(),
-              type: "AI Experience Polish",
-              description: `Polished bullets for position "${expItem?.position || "Role"}" at "${expItem?.company || "Company"}"`,
+              type: "Bullet Point Enhancement",
+              description: `Enhanced bullets for "${expItem?.position || "Role"}" at "${expItem?.company || "Company"}"`,
               details: resData.polishedText.substring(0, 150) + "..."
             })
-          }, { merge: true }).then(() => {
-            console.log("Successfully logged experience polish event to Firestore");
-          }).catch((fsErr) => {
-            console.error("Error saving experience polish history:", fsErr);
-          });
+          }, { merge: true }).catch(console.error);
         }
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || "Failed to polish text.");
+      setErrorMsg(err.message || "Failed to enhance bullet points.");
     } finally {
       setPolishingId(null);
     }
   };
 
-  // AI 3: Suggest Skills based on Job Title
-  const handleAISuggestSkills = async () => {
+  // Smart feature 3: Suggest Skills
+  const handleSuggestSkills = async () => {
     const jobTitle = data.personal.jobTitle;
     if (!jobTitle) {
-      setErrorMsg("Please fill in a Job Title in 'Personal Info' first to fetch appropriate skills.");
+      setErrorMsg("Please enter a Target Job Title in 'Personal Info' first to find relevant skills.");
       setActiveTab("personal");
       return;
     }
@@ -246,24 +226,22 @@ export const CVForm: React.FC<CVFormProps> = ({
       }
 
       if (!response.ok) {
-        throw new Error(resData.error || "Failed to fetch skills");
+        throw new Error(resData.error || "Failed to suggest skills");
       }
 
-      // Merge new skills excluding duplicates
       const freshSkills = resData.skills || [];
       const mergedSkills = Array.from(new Set([...data.skills, ...freshSkills]));
       
-      // Merge certifications if retrieved
       let mergedCerts = [...data.certifications];
       const recCerts = resData.certifications || [];
       recCerts.forEach((certName: string) => {
         const alreadyHas = data.certifications.some(c => c.name.toLowerCase() === certName.toLowerCase());
         if (!alreadyHas) {
           mergedCerts.push({
-            id: `cert-ai-${Date.now()}-${Math.random()}`,
+            id: `cert-${Date.now()}-${Math.random()}`,
             name: certName,
             issuer: "Recommended Certificate",
-            date: "New"
+            date: "Recent"
           });
         }
       });
@@ -275,22 +253,18 @@ export const CVForm: React.FC<CVFormProps> = ({
       };
 
       onChange(updatedData);
+      setSuccessMsg(`Added ${freshSkills.length} relevant skill keywords.`);
 
-      // Save generated profile/history to Firestore under their unique User ID if logged in (non-blocking)
       if (currentUser) {
         setDoc(doc(db, "users", currentUser.uid), {
           cvData: updatedData,
           aiGenerations: arrayUnion({
             timestamp: new Date().toISOString(),
-            type: "AI Skill Suggestions",
-            description: `Suggested skills and certifications for Job Title "${jobTitle}"`,
-            details: `Suggested keywords: ${freshSkills.slice(0, 5).join(", ")}`
+            type: "Skill Suggestions",
+            description: `Suggested skills for "${jobTitle}"`,
+            details: freshSkills.slice(0, 5).join(", ")
           })
-        }, { merge: true }).then(() => {
-          console.log("Successfully logged AI skill suggestions to Firestore");
-        }).catch((fsErr) => {
-          console.error("Error saving AI skills history:", fsErr);
-        });
+        }, { merge: true }).catch(console.error);
       }
     } catch (err: any) {
       console.error(err);
@@ -300,153 +274,7 @@ export const CVForm: React.FC<CVFormProps> = ({
     }
   };
 
-  // File Upload Reader
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        try {
-          const parsed = JSON.parse(content);
-          if (parsed && (parsed.personal || parsed.experience || parsed.skills)) {
-            onChange(parsed);
-            setSuccessMsg("Success! Detected a structured JSON backup. Restored entire CV fields instantly.");
-            return;
-          }
-        } catch (e) {
-          // Standard text file, proceed to set import text
-        }
-        setImportText(content);
-        setSuccessMsg(`File "${file.name}" loaded successfully! Click "Parse & Import" below to structure it with AI.`);
-      }
-    };
-    reader.onerror = () => {
-      setErrorMsg("Failed to read the uploaded file. Please paste your text manually.");
-    };
-    reader.readAsText(file);
-  };
-
-  // AI CV Import & Parse
-  const handleAICVImport = async () => {
-    if (!importText.trim()) {
-      setErrorMsg("Please enter or paste your resume text first, or choose a file above.");
-      return;
-    }
-
-    setIsParsingCV(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    try {
-      const response = await fetch("/api/cv/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: importText })
-      });
-
-      let resData: any = {};
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        resData = await response.json();
-      } else {
-        const errorText = await response.text();
-        throw new Error(errorText || `Request failed with status ${response.status}`);
-      }
-
-      if (!response.ok) {
-        throw new Error(resData.error || "Failed to parse resume text");
-      }
-
-      if (resData.cvData) {
-        onChange(resData.cvData);
-        setSuccessMsg("Incredible! AI successfully analyzed and parsed your CV into our live fields. View and refine it on the right!");
-        setImportText(""); // Clear text area upon successful import
-        
-        // Log AI Import Event to Firestore under user if authenticated
-        if (currentUser) {
-          setDoc(doc(db, "users", currentUser.uid), {
-            cvData: resData.cvData,
-            aiGenerations: arrayUnion({
-              timestamp: new Date().toISOString(),
-              type: "AI CV Import & Parse",
-              description: `Imported and parsed existing resume of "${resData.cvData.personal?.fullName || "Professional"}"`
-            })
-          }, { merge: true }).then(() => {
-            console.log("Logged CV import event successfully to Firestore");
-          }).catch((fsErr) => {
-            console.error("Firestore log error:", fsErr);
-          });
-        }
-      }
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || "An error occurred while importing your resume.");
-    } finally {
-      setIsParsingCV(false);
-    }
-  };
-
-  // AI ATS Audit
-  const handleAIATSCheck = async () => {
-    setIsAnalyzingATS(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    try {
-      const response = await fetch("/api/cv/ats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cvData: data,
-          jobDescription: atsJobDesc
-        })
-      });
-
-      let resData: any = {};
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        resData = await response.json();
-      } else {
-        const errorText = await response.text();
-        throw new Error(errorText || `Request failed with status ${response.status}`);
-      }
-
-      if (!response.ok) {
-        throw new Error(resData.error || "Failed to analyze compatibility");
-      }
-
-      if (resData) {
-        setAtsResult(resData);
-        setSuccessMsg("ATS Optimization Audit Complete! Read your detailed readiness reports below.");
-
-        // Log ATS Score Event to Firestore
-        if (currentUser) {
-          setDoc(doc(db, "users", currentUser.uid), {
-            aiGenerations: arrayUnion({
-              timestamp: new Date().toISOString(),
-              type: "ATS Audit & Check",
-              description: `Conducted ATS Score Audit for role: "${data.personal?.jobTitle || "Role"}"`,
-              details: `ATS Score: ${resData.score}/100 - Rating: ${resData.rating}`
-            })
-          }, { merge: true }).then(() => {
-            console.log("Logged ATS Audit event to Firestore");
-          }).catch((fsErr) => {
-            console.error("Firestore log error:", fsErr);
-          });
-        }
-      }
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || "An error occurred during the ATS analysis.");
-    } finally {
-      setIsAnalyzingATS(false);
-    }
-  };
-
-  // Crud helpers: Experience
+  // CRUD helpers: Experience
   const addExperience = () => {
     const newExp: WorkExperience = {
       id: `exp-${Date.now()}`,
@@ -468,7 +296,6 @@ export const CVForm: React.FC<CVFormProps> = ({
     const updated = data.experience.map(exp => {
       if (exp.id === id) {
         const item = { ...exp, [field]: value };
-        // If set to current, erase endDate
         if (field === 'current' && value === true) {
           item.endDate = "";
         }
@@ -486,7 +313,7 @@ export const CVForm: React.FC<CVFormProps> = ({
     });
   };
 
-  // Crud helpers: Education
+  // CRUD helpers: Education
   const addEducation = () => {
     const newEdu: Education = {
       id: `edu-${Date.now()}`,
@@ -635,36 +462,34 @@ export const CVForm: React.FC<CVFormProps> = ({
 
   // Color preset options
   const colorPresets = [
-    { label: "Executive Blue", value: "#1e3a8a" },
-    { label: "Emerald Green", value: "#047857" },
-    { label: "Crimson Red", value: "#be123c" },
-    { label: "Sleek Grape", value: "#6b21a8" },
-    { label: "Tech Indigo", value: "#4338ca" },
-    { label: "Midnight Black", value: "#0f172a" },
-    { label: "Classy Amber", value: "#b45309" }
+    { label: "Indigo", value: "#4f46e5" },
+    { label: "Corporate Blue", value: "#2563eb" },
+    { label: "Emerald", value: "#059669" },
+    { label: "Crimson", value: "#e11d48" },
+    { label: "Violet", value: "#7c3aed" },
+    { label: "Slate / Charcoal", value: "#334155" },
+    { label: "Amber", value: "#d97706" }
   ];
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-100 overflow-hidden">
-      {/* Title */}
-      <div className="p-4 border-b border-slate-800 bg-slate-950 flex justify-between items-center">
+    <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-100 overflow-hidden font-sans">
+      {/* Header */}
+      <div className="px-5 py-3.5 border-b border-slate-800 bg-slate-950 flex justify-between items-center shrink-0">
         <div>
-          <h2 className="text-md font-extrabold tracking-tight text-white flex items-center gap-2">
-            <span className="p-1 px-2 bg-blue-600 rounded text-xs">CV</span> Form Configuration
-          </h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">Edit credentials & design parameters live</p>
+          <h2 className="text-sm font-bold text-white tracking-tight">Resume Builder</h2>
+          <p className="text-[11px] text-slate-400 mt-0.5">Customize content, layout, and visual formatting</p>
         </div>
       </div>
 
-      {/* Tabs list inside Form container */}
-      <div className="flex bg-slate-950 p-2 overflow-x-auto gap-1 border-b border-slate-800 shrink-0 select-none scrollbar-none">
+      {/* Navigation Tabs Bar */}
+      <div className="flex bg-slate-950 px-3 py-2 overflow-x-auto gap-1 border-b border-slate-800 shrink-0 select-none scrollbar-none">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setErrorMsg(null); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer shrink-0 ${
+            onClick={() => { setActiveTab(tab.id); setErrorMsg(null); setSuccessMsg(null); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
               activeTab === tab.id 
-                ? "bg-slate-800 text-white shadow-sm" 
+                ? "bg-indigo-600 text-white shadow-sm" 
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
             }`}
           >
@@ -674,61 +499,74 @@ export const CVForm: React.FC<CVFormProps> = ({
         ))}
       </div>
 
-      {/* Main Form content drawer scroll */}
+      {/* Form Content Area */}
       <div className="p-5 flex-grow overflow-y-auto space-y-5">
         
-        {/* Top level warning/error message banner */}
+        {/* Error notification */}
         {errorMsg && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-md">
-            {errorMsg}
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-lg flex items-center justify-between">
+            <span>{errorMsg}</span>
+            <button onClick={() => setErrorMsg(null)} className="text-rose-400 hover:text-white font-bold ml-2">×</button>
           </div>
         )}
 
-        {/* --- DESIGN & STYLES TAB --- */}
+        {/* Success notification */}
+        {successMsg && (
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs rounded-lg flex items-center justify-between">
+            <span>{successMsg}</span>
+            <button onClick={() => setSuccessMsg(null)} className="text-emerald-400 hover:text-white font-bold ml-2">×</button>
+          </div>
+        )}
+
+        {/* --- TEMPLATE & STYLE TAB --- */}
         {activeTab === "design" && (
           <div className="space-y-6">
-            <div className="p-4 bg-slate-950/40 rounded-lg border border-slate-800">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-                <Palette className="w-4 h-4 text-blue-500" /> Choose Master Layout Template
+            
+            {/* Master Template Selector */}
+            <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 flex items-center gap-2">
+                <Palette className="w-4 h-4 text-indigo-400" />
+                <span>Resume Template</span>
               </h3>
+              
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { id: "executive", name: "The Executive", desc: "Classic, professional double-column headers." },
-                  { id: "minimalist", name: "The Minimalist", desc: "Aesthetic, clean lines, maximum whitespace." },
-                  { id: "creative", name: "The Creative", desc: "Sophisticated side column with tinted banner." },
-                  { id: "modern", name: "Modern Tech", desc: "High-contrast dark developer style." }
+                  { id: "modern", name: "Modern Elite", desc: "Two-column structured layout for tech & product." },
+                  { id: "executive", name: "Executive Suite", desc: "Classic single-column serif for corporate & leadership." },
+                  { id: "minimalist", name: "Clean Minimalist", desc: "Maximum whitespace with clean grid accents." },
+                  { id: "creative", name: "Creative Brand", desc: "Prominent sidebar accent for design & marketing." }
                 ].map((tpl) => (
                   <button
                     key={tpl.id}
                     onClick={() => onDesignChange({ ...design, templateId: tpl.id as TemplateId })}
-                    className={`p-3 text-left rounded-lg border transition cursor-pointer group ${
+                    className={`p-3 text-left rounded-xl border transition cursor-pointer relative ${
                       design.templateId === tpl.id 
-                        ? "bg-blue-600/10 border-blue-500 text-white" 
+                        ? "bg-indigo-600/10 border-indigo-500 text-white shadow-sm ring-1 ring-indigo-500/30" 
                         : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700"
                     }`}
                   >
                     <div className="flex justify-between items-center mb-1">
                       <span className="font-bold text-xs">{tpl.name}</span>
-                      {design.templateId === tpl.id && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                      {design.templateId === tpl.id && <Check className="w-3.5 h-3.5 text-indigo-400" />}
                     </div>
-                    <span className="text-[10px] text-slate-400 block leading-normal">{tpl.desc}</span>
+                    <span className="text-[11px] text-slate-400 block leading-normal">{tpl.desc}</span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Accent Theme Color */}
-            <div className="p-4 bg-slate-950/40 rounded-lg border border-slate-800">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 block">
-                Brand Accent Color
+            <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 block">
+                Primary Accent Color
               </h3>
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div className="flex flex-wrap items-center gap-2.5">
                 {colorPresets.map((preset) => (
                   <button
                     key={preset.value}
                     onClick={() => onDesignChange({ ...design, themeColor: preset.value })}
                     className={`w-7 h-7 rounded-full border transition relative cursor-pointer flex items-center justify-center ${
-                      design.themeColor === preset.value ? "border-white scale-110" : "border-slate-700 hover:scale-105"
+                      design.themeColor === preset.value ? "border-white ring-2 ring-indigo-500/50 scale-110" : "border-slate-700 hover:scale-105"
                     }`}
                     style={{ backgroundColor: preset.value }}
                     title={preset.label}
@@ -740,41 +578,42 @@ export const CVForm: React.FC<CVFormProps> = ({
                 ))}
                 
                 {/* Custom Color Input */}
-                <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+                <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
                   <input
                     type="color"
                     value={design.themeColor}
                     onChange={(e) => onDesignChange({ ...design, themeColor: e.target.value })}
-                    className="w-7 h-7 rounded cursor-pointer bg-slate-950 border border-slate-800"
+                    className="w-7 h-7 rounded-lg cursor-pointer bg-slate-950 border border-slate-800"
+                    title="Choose custom color"
                   />
-                  <span className="text-[10px] font-mono text-slate-400">{design.themeColor}</span>
+                  <span className="text-[11px] font-mono text-slate-400">{design.themeColor}</span>
                 </div>
               </div>
             </div>
 
-            {/* Typography and Margins */}
-            <div className="p-4 bg-slate-950/40 rounded-lg border border-slate-800 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 block">
-                Layout Formatting
+            {/* Typography & Spacing */}
+            <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                Typography & Spacing
               </h3>
               
-              {/* Font Family Selection */}
+              {/* Font Family */}
               <div>
-                <label className="text-[11px] text-slate-400 uppercase tracking-widest block mb-1.5">Typography Font</label>
-                <div className="grid grid-cols-4 gap-1">
+                <label className="text-[11px] font-medium text-slate-400 block mb-1.5">Font Style</label>
+                <div className="grid grid-cols-4 gap-1.5">
                   {[
-                    { id: "sans", name: "Inter (Sans)" },
-                    { id: "serif", name: "Playfair (Serif)" },
-                    { id: "mono", name: "Mono Tech" },
-                    { id: "grotesk", name: "Outfit Elegant" }
+                    { id: "sans", name: "Modern Sans" },
+                    { id: "serif", name: "Classic Serif" },
+                    { id: "mono", name: "Technical Mono" },
+                    { id: "grotesk", name: "Clean Display" }
                   ].map((font) => (
                     <button
                       key={font.id}
                       onClick={() => onDesignChange({ ...design, fontFamily: font.id as any })}
-                      className={`py-1.5 px-2 rounded text-[10px] font-medium border cursor-pointer ${
+                      className={`py-1.5 px-2 rounded-lg text-xs font-medium border cursor-pointer transition ${
                         design.fontFamily === font.id 
-                          ? "bg-slate-800 text-white border-blue-500" 
-                          : "bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700"
+                          ? "bg-slate-800 text-white border-indigo-500 shadow-sm" 
+                          : "bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200"
                       }`}
                     >
                       {font.name}
@@ -785,20 +624,20 @@ export const CVForm: React.FC<CVFormProps> = ({
 
               {/* Spacing Select */}
               <div>
-                <label className="text-[11px] text-slate-400 uppercase tracking-widest block mb-1.5">Compactness / Spacing</label>
-                <div className="grid grid-cols-3 gap-1">
+                <label className="text-[11px] font-medium text-slate-400 block mb-1.5">Page Density & Margins</label>
+                <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { id: "compact", name: "Compact (Fit More)" },
-                    { id: "normal", name: "Standard" },
+                    { id: "compact", name: "Compact (1 Page Fit)" },
+                    { id: "normal", name: "Standard (Balanced)" },
                     { id: "relaxed", name: "Relaxed (Spacious)" }
                   ].map((sp) => (
                     <button
                       key={sp.id}
                       onClick={() => onDesignChange({ ...design, spacing: sp.id as any })}
-                      className={`py-1.5 px-2 rounded text-[10px] font-medium border cursor-pointer ${
+                      className={`py-1.5 px-2 rounded-lg text-xs font-medium border cursor-pointer transition ${
                         design.spacing === sp.id 
-                          ? "bg-slate-800 text-white border-blue-500" 
-                          : "bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700"
+                          ? "bg-slate-800 text-white border-indigo-500 shadow-sm" 
+                          : "bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200"
                       }`}
                     >
                       {sp.name}
@@ -808,26 +647,26 @@ export const CVForm: React.FC<CVFormProps> = ({
               </div>
             </div>
 
-            {/* Toggle Sections Visibility */}
-            <div className="p-4 bg-slate-950/40 rounded-lg border border-slate-800">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 block">
-                Manage CV Sections
+            {/* Section Visibility Controls */}
+            <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 block">
+                Visible Sections
               </h3>
               <div className="space-y-2.5 text-xs">
                 {[
-                  { key: "showExperienceSection", label: "Work Experience Column" },
-                  { key: "showEducationSection", label: "Education & Studies Details" },
-                  { key: "showProjectsSection", label: "Projects Accomplishments" },
-                  { key: "showCertificationsSection", label: "Professional Certifications" },
-                  { key: "showLanguagesSection", label: "Languages Section" }
+                  { key: "showExperienceSection", label: "Work Experience" },
+                  { key: "showEducationSection", label: "Education & Academics" },
+                  { key: "showProjectsSection", label: "Notable Projects" },
+                  { key: "showCertificationsSection", label: "Certifications & Credentials" },
+                  { key: "showLanguagesSection", label: "Languages" }
                 ].map((cfg) => (
-                  <label key={cfg.key} className="flex justify-between items-center cursor-pointer select-none">
-                    <span className="text-slate-300">{cfg.label}</span>
+                  <label key={cfg.key} className="flex justify-between items-center cursor-pointer select-none py-0.5">
+                    <span className="text-slate-300 font-medium">{cfg.label}</span>
                     <input
                       type="checkbox"
                       checked={(design as any)[cfg.key]}
                       onChange={(e) => onDesignChange({ ...design, [cfg.key]: e.target.checked })}
-                      className="w-4 h-4 rounded text-blue-600 bg-slate-950 border-slate-700"
+                      className="w-4 h-4 rounded text-indigo-600 bg-slate-950 border-slate-700 focus:ring-0 cursor-pointer"
                     />
                   </label>
                 ))}
@@ -839,120 +678,117 @@ export const CVForm: React.FC<CVFormProps> = ({
         {/* --- PERSONAL INFO TAB --- */}
         {activeTab === "personal" && (
           <div className="space-y-4">
-            <p className="text-[11px] text-slate-400 italic">This section defines your contact information and identity header.</p>
-            
             <div>
-              <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">Full Name</label>
+              <label className="text-xs font-semibold text-slate-300 block mb-1">Full Name</label>
               <input
                 type="text"
-                placeholder="e.g. Jean-Luc Picard"
+                placeholder="e.g. Alex Morgan"
                 value={data.personal.fullName}
                 onChange={(e) => updatePersonal("fullName", e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs"
+                className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition"
               />
             </div>
 
             <div>
-              <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">Target Job Title</label>
+              <label className="text-xs font-semibold text-slate-300 block mb-1">Target Job Title</label>
               <input
                 type="text"
-                placeholder="e.g. Lead Devops Engineer"
+                placeholder="e.g. Senior Full Stack Engineer"
                 value={data.personal.jobTitle}
                 onChange={(e) => updatePersonal("jobTitle", e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs"
+                className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">Email Address</label>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">Email Address</label>
                 <input
                   type="email"
-                  placeholder="name@email.com"
+                  placeholder="alex.morgan@example.com"
                   value={data.personal.email}
                   onChange={(e) => updatePersonal("email", e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs"
+                  className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">Phone Number</label>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">Phone Number</label>
                 <input
                   type="tel"
-                  placeholder="+1 (555) 012-3456"
+                  placeholder="+1 (555) 234-5678"
                   value={data.personal.phone}
                   onChange={(e) => updatePersonal("phone", e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs"
+                  className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">Location / Office</label>
+              <label className="text-xs font-semibold text-slate-300 block mb-1">Location</label>
               <input
                 type="text"
-                placeholder="e.g. Seattle, WA or London, UK"
+                placeholder="e.g. San Francisco, CA (or Remote)"
                 value={data.personal.location}
                 onChange={(e) => updatePersonal("location", e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs"
+                className="w-full px-3 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition"
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2.5 pt-1">
               <div>
-                <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">LinkedIn Handle</label>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">LinkedIn URL</label>
                 <input
                   type="text"
                   placeholder="linkedin.com/in/..."
                   value={data.personal.linkedin}
                   onChange={(e) => updatePersonal("linkedin", e.target.value)}
-                  className="w-full px-2 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs text-ellipsis"
+                  className="w-full px-2.5 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition truncate"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">GitHub Profile</label>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">GitHub / Portfolio</label>
                 <input
                   type="text"
                   placeholder="github.com/..."
                   value={data.personal.github}
                   onChange={(e) => updatePersonal("github", e.target.value)}
-                  className="w-full px-2 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs text-ellipsis"
+                  className="w-full px-2.5 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition truncate"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block mb-1">Personal Web Link</label>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">Personal Website</label>
                 <input
                   type="text"
-                  placeholder="mywebsite.com"
+                  placeholder="alexmorgan.dev"
                   value={data.personal.website}
                   onChange={(e) => updatePersonal("website", e.target.value)}
-                  className="w-full px-2 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs text-ellipsis"
+                  className="w-full px-2.5 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition truncate"
                 />
               </div>
             </div>
           </div>
         )}
 
-        {/* --- PROFILE SUMMARY TAB --- */}
+        {/* --- SUMMARY TAB --- */}
         {activeTab === "summary" && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block">Professional Profile Statement</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-slate-300 block">Executive Summary</label>
               
-              {/* AI Button */}
               <button
-                onClick={handleAIGenerateSummary}
+                onClick={handleAutoGenerateSummary}
                 disabled={isGeneratingSummary}
-                className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-600 hover:to-indigo-700 disabled:from-slate-800 disabled:to-slate-800 text-white rounded text-[10px] font-semibold tracking-wider uppercase transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
               >
                 {isGeneratingSummary ? (
                   <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Writing Profile...</span>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Generating...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-3 h-3 text-yellow-300" />
-                    <span>AI Generate Profile</span>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Auto-Write Summary</span>
                   </>
                 )}
               </button>
@@ -962,139 +798,155 @@ export const CVForm: React.FC<CVFormProps> = ({
               value={data.summary}
               onChange={handleSummaryChange}
               rows={6}
-              placeholder="A high-level sentence highlighting key experiences, technical skills, and achievements. Keep it 3-4 professional lines."
-              className="w-full p-3 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs leading-relaxed"
+              placeholder="Highlight your key achievements, leadership experience, core technical capabilities, and primary career goals. Aim for 3-4 impactful sentences."
+              className="w-full p-3 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs leading-relaxed transition"
             />
-            <p className="text-[10px] text-slate-400 block">
-              💡 **AI Tip:** Enter your target role title and skills tags first, then click **AI Generate Profile** to draft a polished executive statement based on your profile inputs automatically!
-            </p>
+            
+            <div className="p-3 bg-slate-950/40 rounded-lg border border-slate-850 text-xs text-slate-400 leading-relaxed">
+              💡 <span className="font-semibold text-slate-300">Pro Tip:</span> Fill in your target job title in Personal Info and at least one role in Experience, then click <span className="text-indigo-400 font-medium">Auto-Write Summary</span> to generate an ATS-tailored statement.
+            </div>
           </div>
         )}
 
         {/* --- EXPERIENCE TAB --- */}
         {activeTab === "experience" && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Experience Chronicle</span>
+              <div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Work Experience</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">Chronological career history</p>
+              </div>
               <button
                 onClick={addExperience}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-sm transition"
               >
-                <Plus className="w-4 h-4" /> Add Job Role
+                <Plus className="w-3.5 h-3.5" /> Add Role
               </button>
             </div>
 
             {data.experience.length === 0 && (
-              <p className="text-xs italic text-slate-400 text-center py-6">No experience logs provided yet. Click Add Job Role to insert one.</p>
+              <div className="text-center py-8 px-4 bg-slate-950/40 rounded-xl border border-slate-800">
+                <Briefcase className="w-6 h-6 text-slate-500 mx-auto mb-2" />
+                <p className="text-xs text-slate-400">No work experience added yet.</p>
+                <button
+                  onClick={addExperience}
+                  className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                >
+                  + Add your first position
+                </button>
+              </div>
             )}
 
-            <div className="space-y-5">
-              {data.experience.map((exp) => (
-                <div key={exp.id} className="p-4 bg-slate-950/40 border border-slate-800 rounded-lg space-y-4 shadow relative">
-                  <button
-                    onClick={() => removeExperience(exp.id)}
-                    className="absolute top-2 right-2 text-slate-500 hover:text-rose-400 transition cursor-pointer"
-                    title="Delete Role"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+            <div className="space-y-4">
+              {data.experience.map((exp, index) => (
+                <div key={exp.id} className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3.5 relative shadow-sm">
+                  <div className="flex justify-between items-center border-b border-slate-850 pb-2">
+                    <span className="text-xs font-bold text-slate-300">Position #{data.experience.length - index}</span>
+                    <button
+                      onClick={() => removeExperience(exp.id)}
+                      className="text-slate-500 hover:text-rose-400 p-1 transition cursor-pointer"
+                      title="Remove Role"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Job Role / Position</label>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Job Title</label>
                       <input
                         type="text"
-                        placeholder="e.g. Senior Backend Engineer"
+                        placeholder="e.g. Senior Frontend Engineer"
                         value={exp.position}
                         onChange={(e) => updateExperienceItem(exp.id, "position", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Company / Firm</label>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Company / Organization</label>
                       <input
                         type="text"
-                        placeholder="e.g. Google LLC"
+                        placeholder="e.g. Acme Corp"
                         value={exp.company}
                         onChange={(e) => updateExperienceItem(exp.id, "company", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Location</label>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Location</label>
                       <input
                         type="text"
-                        placeholder="e.g. Mountain View, CA"
+                        placeholder="e.g. San Francisco, CA"
                         value={exp.location}
                         onChange={(e) => updateExperienceItem(exp.id, "location", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Start Date</label>
+                        <label className="text-[11px] font-medium text-slate-400 block mb-1">Start Date</label>
                         <input
                           type="month"
                           value={exp.startDate}
                           onChange={(e) => updateExperienceItem(exp.id, "startDate", e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                          className="w-full px-2 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">End Date</label>
+                        <label className="text-[11px] font-medium text-slate-400 block mb-1">End Date</label>
                         <input
                           type="month"
                           value={exp.endDate}
                           disabled={exp.current}
                           onChange={(e) => updateExperienceItem(exp.id, "endDate", e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white disabled:opacity-50"
+                          className="w-full px-2 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-40"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div className="flex justify-between items-center text-xs">
-                    <label className="flex items-center gap-1.5 text-slate-300">
+                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={exp.current}
                         onChange={(e) => updateExperienceItem(exp.id, "current", e.target.checked)}
-                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-700"
+                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer"
                       />
-                      <span>I currently study or work in this role</span>
+                      <span>Currently working here</span>
                     </label>
 
-                    {/* AI Polish Button */}
                     <button
-                      onClick={() => handleAIPolishExperience(exp.id, exp.description)}
+                      onClick={() => handleEnhanceExperience(exp.id, exp.description)}
                       disabled={polishingId === exp.id}
-                      className="flex items-center gap-1 px-2 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 disabled:opacity-55 border border-indigo-700/40 rounded text-[10px] font-bold tracking-wider uppercase cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600/15 hover:bg-indigo-600/30 text-indigo-300 disabled:opacity-50 border border-indigo-500/25 rounded-lg text-xs font-semibold cursor-pointer transition"
                     >
                       {polishingId === exp.id ? (
                         <>
                           <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>AI Polishing...</span>
+                          <span>Formatting...</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-3 h-3 text-yellow-300" />
-                          <span>AI Polish Bullet Points</span>
+                          <Sparkles className="w-3 h-3 text-indigo-400" />
+                          <span>Enhance Bullets</span>
                         </>
                       )}
                     </button>
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-1">Descriptions / Bullet listings</label>
+                    <label className="text-[11px] font-medium text-slate-400 block mb-1">Key Responsibilities & Achievements (One per line)</label>
                     <textarea
-                      placeholder="Write job achievements, tasks or highlights (one per line). Use AI to instantly convert these into professional executive bullet points!"
+                      placeholder="• Led the migration of microservices architecture resulting in 40% latency reduction
+• Mentored a team of 6 engineers and streamlined CI/CD deployment pipelines"
                       value={exp.description}
                       onChange={(e) => updateExperienceItem(exp.id, "description", e.target.value)}
                       rows={4}
-                      className="w-full p-2.5 bg-slate-950 rounded border border-slate-800 text-xs font-mono text-slate-100 focus:outline-none"
+                      className="w-full p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 leading-relaxed font-mono"
                     />
                   </div>
                 </div>
@@ -1105,119 +957,133 @@ export const CVForm: React.FC<CVFormProps> = ({
 
         {/* --- EDUCATION TAB --- */}
         {activeTab === "education" && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Studies & Academia</span>
+              <div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Education</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">Degrees and academic qualifications</p>
+              </div>
               <button
                 onClick={addEducation}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-sm transition"
               >
-                <Plus className="w-4 h-4" /> Add Academic Entry
+                <Plus className="w-3.5 h-3.5" /> Add Education
               </button>
             </div>
 
             {data.education.length === 0 && (
-              <p className="text-xs italic text-slate-400 text-center py-6">No academic logs provided yet. Click Add Academic Entry to insert one.</p>
+              <div className="text-center py-8 px-4 bg-slate-950/40 rounded-xl border border-slate-800">
+                <GraduationCap className="w-6 h-6 text-slate-500 mx-auto mb-2" />
+                <p className="text-xs text-slate-400">No education entries added yet.</p>
+                <button
+                  onClick={addEducation}
+                  className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                >
+                  + Add qualification
+                </button>
+              </div>
             )}
 
-            <div className="space-y-5">
-              {data.education.map((edu) => (
-                <div key={edu.id} className="p-4 bg-slate-950/40 border border-slate-800 rounded-lg space-y-4 shadow relative">
-                  <button
-                    onClick={() => removeEducation(edu.id)}
-                    className="absolute top-2 right-2 text-slate-500 hover:text-rose-400 transition cursor-pointer"
-                    title="Delete Entry"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+            <div className="space-y-4">
+              {data.education.map((edu, index) => (
+                <div key={edu.id} className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3.5 relative shadow-sm">
+                  <div className="flex justify-between items-center border-b border-slate-850 pb-2">
+                    <span className="text-xs font-bold text-slate-300">Degree #{data.education.length - index}</span>
+                    <button
+                      onClick={() => removeEducation(edu.id)}
+                      className="text-slate-500 hover:text-rose-400 p-1 transition cursor-pointer"
+                      title="Remove Entry"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">School / University</label>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">University / Institution</label>
                       <input
                         type="text"
                         placeholder="e.g. Stanford University"
                         value={edu.school}
                         onChange={(e) => updateEducationItem(edu.id, "school", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Degree / Diploma</label>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Degree</label>
                       <input
                         type="text"
-                        placeholder="e.g. Master of Science (M.S.)"
+                        placeholder="e.g. Bachelor of Science (B.S.)"
                         value={edu.degree}
                         onChange={(e) => updateEducationItem(edu.id, "degree", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Major / Field of Study</label>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Major / Field of Study</label>
                       <input
                         type="text"
-                        placeholder="e.g. Artificial Intelligence"
+                        placeholder="e.g. Computer Science"
                         value={edu.field}
                         onChange={(e) => updateEducationItem(edu.id, "field", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Start Date</label>
+                        <label className="text-[11px] font-medium text-slate-400 block mb-1">Start Date</label>
                         <input
                           type="month"
                           value={edu.startDate}
                           onChange={(e) => updateEducationItem(edu.id, "startDate", e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                          className="w-full px-2 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">End Date</label>
+                        <label className="text-[11px] font-medium text-slate-400 block mb-1">Graduation Date</label>
                         <input
                           type="month"
                           value={edu.endDate}
                           disabled={edu.current}
                           onChange={(e) => updateEducationItem(edu.id, "endDate", e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white disabled:opacity-50"
+                          className="w-full px-2 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-40"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div className="flex justify-between items-center text-xs">
-                    <label className="flex items-center gap-1.5 text-slate-300">
+                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={edu.current}
                         onChange={(e) => updateEducationItem(edu.id, "current", e.target.checked)}
-                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-700"
+                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer"
                       />
                       <span>Currently studying here</span>
                     </label>
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Location</label>
                       <input
                         type="text"
-                        placeholder="Stanford, CA"
+                        placeholder="Location (e.g. Stanford, CA)"
                         value={edu.location}
                         onChange={(e) => updateEducationItem(edu.id, "location", e.target.value)}
-                        className="px-2 py-1 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="px-2.5 py-1 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-1">Honors / Extra Academic detail</label>
+                    <label className="text-[11px] font-medium text-slate-400 block mb-1">Academic Honors / Activities (Optional)</label>
                     <textarea
-                      placeholder="e.g. GPA 3.9/4.0. Completed advanced thesis on deep neural networks."
+                      placeholder="e.g. GPA 3.9/4.0, Dean's Honors List, Relevant Coursework: Distributed Systems, Machine Learning"
                       value={edu.notes}
                       onChange={(e) => updateEducationItem(edu.id, "notes", e.target.value)}
                       rows={2}
-                      className="w-full p-2 bg-slate-950 rounded border border-slate-800 text-xs text-slate-100 focus:outline-none"
+                      className="w-full p-2 bg-slate-950 rounded-lg border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
@@ -1229,62 +1095,67 @@ export const CVForm: React.FC<CVFormProps> = ({
         {/* --- SKILLS TAB --- */}
         {activeTab === "skills" && (
           <div className="space-y-4">
-            <div className="flex justify-between items-baseline mb-1">
-              <label className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block">Personal Core Expertise</label>
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Skills & Technologies</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">Core competencies and domain expertise</p>
+              </div>
               
-              {/* AI Trigger */}
               <button
-                onClick={handleAISuggestSkills}
+                onClick={handleSuggestSkills}
                 disabled={isSuggestingSkills}
-                className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-600 hover:to-indigo-700 disabled:from-slate-800 disabled:to-slate-800 text-white rounded text-[10px] font-semibold tracking-wider uppercase transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
               >
                 {isSuggestingSkills ? (
                   <>
-                    <Loader2 className="w-3 h-3 animate-spin" strokeWidth={3} />
-                    <span>Analyzing Title...</span>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Finding Skills...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-3 h-3 text-yellow-300 animate-pulse" />
-                    <span>AI Find Core Skills</span>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Suggest Skills</span>
                   </>
                 )}
               </button>
             </div>
 
-            {/* Input field to manually key skills */}
+            {/* Quick add form */}
             <form onSubmit={handleAddSkill} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Type a skill (e.g. Docker, Python) & press Enter"
+                placeholder="Type a skill (e.g. TypeScript, React, Docker) & press Enter"
                 value={skillInput}
                 onChange={(e) => setSkillInput(e.target.value)}
-                className="flex-grow px-3 py-2 bg-slate-950 text-slate-100 rounded-md border border-slate-800 focus:outline-none focus:border-blue-500 text-xs"
+                className="flex-grow px-3 py-2 bg-slate-950 text-slate-100 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 text-xs transition"
               />
               <button
                 type="submit"
-                className="px-3 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-semibold cursor-pointer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold cursor-pointer transition"
               >
                 Add
               </button>
             </form>
 
-            {/* Skill badgelist */}
-            <div className="p-3 bg-slate-950/50 border border-slate-800 rounded-lg min-h-32">
+            {/* Badges container */}
+            <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl min-h-[140px]">
               {data.skills.length === 0 ? (
-                <p className="text-xs italic text-slate-500 text-center py-8">No skills keyed in yet. Key manually above or use the AI finder.</p>
+                <div className="text-center py-8">
+                  <Code className="w-6 h-6 text-slate-500 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400">No skills added yet. Type above or click Suggest Skills.</p>
+                </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {data.skills.map((skill, index) => (
                     <span 
                       key={index}
-                      className="inline-flex items-center gap-1 py-1 px-2 bg-slate-800/80 border border-slate-700 rounded text-xs font-medium text-slate-200"
+                      className="inline-flex items-center gap-1.5 py-1 px-2.5 bg-slate-800 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium"
                     >
                       <span>{skill}</span>
                       <button 
                         type="button" 
                         onClick={() => removeSkill(index)} 
-                        className="text-slate-400 hover:text-rose-400 font-bold ml-1 transition shrink-0 cursor-pointer text-[10px]"
+                        className="text-slate-400 hover:text-rose-400 font-bold transition shrink-0 cursor-pointer text-xs"
                       >
                         ×
                       </button>
@@ -1294,9 +1165,9 @@ export const CVForm: React.FC<CVFormProps> = ({
               )}
             </div>
 
-            <p className="text-[10px] text-slate-400">
-              💡 **AI Finder:** Click the **AI Find Core Skills** button to analyze your target Job Title and append 10+ popular industry-relevant technologies and matching certifications instantly.
-            </p>
+            <div className="p-3 bg-slate-950/40 rounded-lg border border-slate-850 text-xs text-slate-400 leading-relaxed">
+              💡 <span className="font-semibold text-slate-300">Pro Tip:</span> Click <span className="text-indigo-400 font-medium">Suggest Skills</span> to automatically populate industry-standard keywords aligned with your target job role.
+            </div>
           </div>
         )}
 
@@ -1304,72 +1175,84 @@ export const CVForm: React.FC<CVFormProps> = ({
         {activeTab === "projects" && (
           <div className="space-y-5">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Independent Projects</span>
+              <div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Key Projects</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">Showcase open-source, client, or personal work</p>
+              </div>
               <button
                 onClick={addProject}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-sm transition"
               >
-                <Plus className="w-4 h-4" /> Add Project
+                <Plus className="w-3.5 h-3.5" /> Add Project
               </button>
             </div>
 
             {data.projects.length === 0 && (
-              <p className="text-xs italic text-slate-400 text-center py-6">No project details included yet. Click Add Project to start.</p>
+              <div className="text-center py-8 px-4 bg-slate-950/40 rounded-xl border border-slate-800">
+                <Award className="w-6 h-6 text-slate-500 mx-auto mb-2" />
+                <p className="text-xs text-slate-400">No projects added yet.</p>
+                <button
+                  onClick={addProject}
+                  className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                >
+                  + Add project showcase
+                </button>
+              </div>
             )}
 
             <div className="space-y-4">
               {data.projects.map((proj) => (
-                <div key={proj.id} className="p-4 bg-slate-950/40 border border-slate-800 rounded-lg space-y-3 relative shadow">
+                <div key={proj.id} className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-3 relative shadow-sm">
                   <button
                     onClick={() => removeProject(proj.id)}
-                    className="absolute top-2 right-2 text-slate-500 hover:text-rose-400 transition cursor-pointer"
-                    title="Delete Project"
+                    className="absolute top-3 right-3 text-slate-500 hover:text-rose-400 p-1 transition cursor-pointer"
+                    title="Remove Project"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3 pr-6">
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Project Name</label>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Project Name</label>
                       <input
                         type="text"
-                        placeholder="e.g. CloudScale Telemetry"
+                        placeholder="e.g. Distributed Cache Engine"
                         value={proj.name}
                         onChange={(e) => updateProjectItem(proj.id, "name", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Technologies / Stack</label>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Tech Stack</label>
                       <input
                         type="text"
-                        placeholder="e.g. Go, Kubernetes, Recharts"
+                        placeholder="e.g. Go, Redis, Docker, Prometheus"
                         value={proj.technologies}
                         onChange={(e) => updateProjectItem(proj.id, "technologies", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Project Link / Source Code</label>
+                    <label className="text-[11px] font-medium text-slate-400 block mb-1">Project Link / Repository (Optional)</label>
                     <input
                       type="text"
-                      placeholder="e.g. github.com/user/project"
+                      placeholder="e.g. github.com/username/project"
                       value={proj.link}
                       onChange={(e) => updateProjectItem(proj.id, "link", e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                      className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-slate-400 uppercase tracking-widest block mb-0.5">Project Description</label>
+                    <label className="text-[11px] font-medium text-slate-400 block mb-1">Description & Impact</label>
                     <textarea
-                      placeholder="Key achievements or what the project does. Keep it concise."
+                      placeholder="Brief description of the problem solved, architectural approach, and quantifiable results achieved."
                       value={proj.description}
                       onChange={(e) => updateProjectItem(proj.id, "description", e.target.value)}
                       rows={2}
-                      className="w-full p-2 bg-slate-950 rounded border border-slate-800 text-xs text-slate-100 focus:outline-none"
+                      className="w-full p-2 bg-slate-950 rounded-lg border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 leading-relaxed"
                     />
                   </div>
                 </div>
@@ -1382,56 +1265,71 @@ export const CVForm: React.FC<CVFormProps> = ({
         {activeTab === "certifications" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Professional Certifications</span>
+              <div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Certifications</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">Professional credentials and licenses</p>
+              </div>
               <button
                 onClick={addCertification}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-sm transition"
               >
-                <Plus className="w-4 h-4" /> Add Credential
+                <Plus className="w-3.5 h-3.5" /> Add Credential
               </button>
             </div>
 
             {data.certifications.length === 0 && (
-              <p className="text-xs italic text-slate-400 text-center py-6">No credentials included yet. Click Add Credential to start.</p>
+              <div className="text-center py-8 px-4 bg-slate-950/40 rounded-xl border border-slate-800">
+                <Award className="w-6 h-6 text-slate-500 mx-auto mb-2" />
+                <p className="text-xs text-slate-400">No certifications added yet.</p>
+                <button
+                  onClick={addCertification}
+                  className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                >
+                  + Add certification
+                </button>
+              </div>
             )}
 
             <div className="space-y-3">
               {data.certifications.map((cert) => (
-                <div key={cert.id} className="p-3 bg-slate-950/40 border border-slate-800 rounded-lg relative flex items-center gap-3 shadow">
+                <div key={cert.id} className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl relative shadow-sm">
                   <button
                     onClick={() => removeCertification(cert.id)}
-                    className="absolute top-2 right-2 text-slate-500 hover:text-rose-400 transition cursor-pointer"
-                    title="Delete"
+                    className="absolute top-2.5 right-2.5 text-slate-500 hover:text-rose-400 p-1 transition cursor-pointer"
+                    title="Remove"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="grid grid-cols-3 gap-2 flex-grow pt-2">
-                    <div className="col-span-1">
+                  <div className="grid grid-cols-3 gap-2.5 pr-6">
+                    <div>
+                      <label className="text-[10px] font-medium text-slate-400 block mb-1">Certification Name</label>
                       <input
                         type="text"
-                        placeholder="Certificate Name"
+                        placeholder="e.g. AWS Solutions Architect"
                         value={cert.name}
                         onChange={(e) => updateCertificationItem(cert.id, "name", e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div>
+                      <label className="text-[10px] font-medium text-slate-400 block mb-1">Issuing Authority</label>
                       <input
                         type="text"
-                        placeholder="Issuer (e.g. AWS)"
+                        placeholder="e.g. Amazon Web Services"
                         value={cert.issuer}
                         onChange={(e) => updateCertificationItem(cert.id, "issuer", e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div>
+                      <label className="text-[10px] font-medium text-slate-400 block mb-1">Date / Validity</label>
                       <input
                         type="text"
-                        placeholder="Date (e.g. 2024-01)"
+                        placeholder="e.g. 2024 - 2027"
                         value={cert.date}
                         onChange={(e) => updateCertificationItem(cert.id, "date", e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
@@ -1445,51 +1343,65 @@ export const CVForm: React.FC<CVFormProps> = ({
         {activeTab === "languages" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Languages Proficiency</span>
+              <div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Languages</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">Language proficiencies and fluency</p>
+              </div>
               <button
                 onClick={addLanguage}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-sm transition"
               >
-                <Plus className="w-4 h-4" /> Add Language
+                <Plus className="w-3.5 h-3.5" /> Add Language
               </button>
             </div>
 
             {data.languages.length === 0 && (
-              <p className="text-xs italic text-slate-400 text-center py-6">No languages included yet. Click Add Language to start.</p>
+              <div className="text-center py-8 px-4 bg-slate-950/40 rounded-xl border border-slate-800">
+                <Languages className="w-6 h-6 text-slate-500 mx-auto mb-2" />
+                <p className="text-xs text-slate-400">No languages added yet.</p>
+                <button
+                  onClick={addLanguage}
+                  className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                >
+                  + Add language
+                </button>
+              </div>
             )}
 
             <div className="space-y-3">
               {data.languages.map((lang) => (
-                <div key={lang.id} className="p-3 bg-slate-950/40 border border-slate-800 rounded-lg relative flex items-center gap-3 shadow">
+                <div key={lang.id} className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl relative shadow-sm">
                   <button
                     onClick={() => removeLanguage(lang.id)}
-                    className="absolute top-2 right-2 text-slate-500 hover:text-rose-400 transition cursor-pointer"
-                    title="Delete"
+                    className="absolute top-2.5 right-2.5 text-slate-500 hover:text-rose-400 p-1 transition cursor-pointer"
+                    title="Remove"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="grid grid-cols-2 gap-3 flex-grow pt-2">
+                  <div className="grid grid-cols-2 gap-3 pr-6">
                     <div>
+                      <label className="text-[10px] font-medium text-slate-400 block mb-1">Language</label>
                       <input
                         type="text"
-                        placeholder="Language Name"
+                        placeholder="e.g. English, Spanish, German"
                         value={lang.name}
                         onChange={(e) => updateLanguageItem(lang.id, "name", e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-950 rounded border border-slate-800 text-xs text-white"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div>
+                      <label className="text-[10px] font-medium text-slate-400 block mb-1">Proficiency Level</label>
                       <select
                         value={lang.proficiency}
                         onChange={(e) => updateLanguageItem(lang.id, "proficiency", e.target.value)}
-                        className="w-full px-2 py-1 bg-slate-950 rounded border border-slate-800 text-xs text-slate-300"
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
                       >
-                        <option value="Native">Native Speaker</option>
-                        <option value="Fluent">Fluent</option>
-                        <option value="Professional">Professional Working</option>
-                        <option value="Conversational">Conversational</option>
-                        <option value="Basic">Basic</option>
+                        <option value="Native">Native / Bilingual</option>
+                        <option value="Fluent">Fluent (C1/C2)</option>
+                        <option value="Professional">Professional Working (B2)</option>
+                        <option value="Conversational">Conversational (B1)</option>
+                        <option value="Basic">Elementary (A1/A2)</option>
                       </select>
                     </div>
                   </div>

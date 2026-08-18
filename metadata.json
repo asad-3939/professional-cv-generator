@@ -1,6 +1,6 @@
 {
   "name": "AI Professional CV Builder",
-  "description": "An AI-powered professional CV builder to write, polish, customize, and download high-quality CV PDFs with custom templates.",
+  "description": "A modern, professional resume and CV generator with customizable templates, real-time preview, and high-quality PDF exports.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

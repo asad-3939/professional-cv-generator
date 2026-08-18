@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   FileDown, RotateCcw, Printer, Sparkles, AlertCircle, CheckCircle, HelpCircle, Eye, FileImage,
-  Edit3, LogOut, LogIn, User as UserIcon, LayoutDashboard
+  Edit3, LogOut, LogIn, User as UserIcon, LayoutDashboard, FileText
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas-pro";
@@ -185,7 +185,7 @@ export default function App() {
       element.style.transform = "none";
 
       // Render crisp image from HTML elements using html2canvas
-      const scaleValue = 2.0; // Optimized scale value for highly readable crisp text with lower file size (200 DPI equivalent)
+      const scaleValue = 2.5; // High output resolution (240 DPI equivalent)
       const canvas = await html2canvas(element, {
         scale: scaleValue,
         useCORS: true,
@@ -307,30 +307,25 @@ export default function App() {
       // Restore scale
       element.style.transform = originalStyle;
 
+      const imgData = canvas.toDataURL("image/png");
       const fileNameStr = cvData.personal.fullName.trim() 
         ? cvData.personal.fullName.replace(/\s+/g, "_") 
         : "Professional";
 
       if (format === "pdf") {
-        // Generate highly optimized JPEG canvas data (with compression factor 0.82) to keep size under 2MB while preserving extreme crispness
-        const imgData = canvas.toDataURL("image/jpeg", 0.82);
-
         const pdf = new jsPDF({
           orientation: "portrait",
           unit: "mm",
-          format: "a4",
-          compress: true
+          format: "a4"
         });
 
         const pdfWidth = 210; // A4 mm dimensions
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-        pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
+        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
         pdf.save(`${fileNameStr}_CV.pdf`);
-        setSuccessToast(`Successfully downloaded polished, pixel-perfect ${designConfig.templateId} style CV PDF!`);
-        setIsExporting(null);
+        setSuccessToast(`Successfully downloaded polished ${designConfig.templateId} style CV PDF!`);
       } else {
-        const imgData = canvas.toDataURL("image/png");
         const link = document.createElement("a");
         link.download = `${fileNameStr}_CV.png`;
         link.href = imgData;
@@ -338,9 +333,10 @@ export default function App() {
         link.click();
         document.body.removeChild(link);
         setSuccessToast(`Successfully downloaded polished ${designConfig.templateId} style CV Image (PNG)!`);
-        // Reset exporting state immediately for synchronous PNG export
-        setIsExporting(null);
       }
+
+      // Reset loading state immediately once download is triggered
+      setIsExporting(null);
 
       // Log download to Firestore subcollection if user is signed in as a non-blocking background task
       if (currentUser) {
@@ -452,31 +448,31 @@ export default function App() {
                   <span className="hidden sm:inline">AI Professional CV Builder</span>
                   <span className="inline sm:hidden font-black">AI CV Builder</span>
                 </h1>
-                <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer • <span className="text-indigo-400 font-semibold">developed by Asad Mustafa</span></p>
+                <p className="text-[10px] text-slate-400 font-medium hidden sm:block mt-0.5">Automatic PDF formatter and resume writer • <span className="text-indigo-400 font-semibold">developed by Asad Mustafa</span></p>
               </div>
             </div>
 
         {/* Toolbar Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
           
-          {/* AI Import Parser */}
+          {/* Import Resume Button */}
           <button
             onClick={() => {
               setIsAIAssistantOpen(true);
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
-            title="Open AI CV Parser & Importer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 hover:border-slate-600 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
+            title="Import existing resume from PDF, Word, or text"
             id="header_ai_assistant_btn"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">AI CV Parser</span>
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden md:inline">Import Resume</span>
           </button>
           
           {/* Restart/Reset draft */}
           <button
             onClick={handleResetToSample}
-            className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-md text-xs font-semibold cursor-pointer transition select-none"
-            title="Reset to initial default template values"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-lg text-xs font-medium cursor-pointer transition select-none"
+            title="Reset to default template draft"
             id="reset_template_btn"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -487,7 +483,7 @@ export default function App() {
           <button
             onClick={() => handleExport("pdf")}
             disabled={isExporting !== null}
-            className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-lg text-xs font-bold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
             id="download_pdf_btn"
           >
             {isExporting === "pdf" ? (
@@ -502,7 +498,7 @@ export default function App() {
             ) : (
               <>
                 <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                <span className="hidden sm:inline">PDF Download</span>
+                <span className="hidden sm:inline">Download PDF</span>
                 <span className="inline sm:hidden">PDF</span>
               </>
             )}
@@ -512,7 +508,7 @@ export default function App() {
           <button
             onClick={() => handleExport("png")}
             disabled={isExporting !== null}
-            className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-800 text-white rounded-md text-xs font-bold tracking-tight shadow-md cursor-pointer transition select-none shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
             id="download_png_btn"
           >
             {isExporting === "png" ? (
@@ -526,7 +522,7 @@ export default function App() {
               </>
             ) : (
               <>
-                <FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                <FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
                 <span className="hidden sm:inline">PNG Image</span>
                 <span className="inline sm:hidden">PNG</span>
               </>
@@ -535,15 +531,15 @@ export default function App() {
 
           {/* User Auth controls */}
           {currentUser ? (
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-3 ml-1.5" id="user-header-profile">
+            <div className="flex items-center gap-2 border-l border-slate-800 pl-3 ml-1" id="user-header-profile">
               <button
                 onClick={() => setIsHistoryModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-400 border border-indigo-500/20 rounded-md text-xs font-bold transition select-none cursor-pointer shrink-0"
-                title="View My Dashboard & CV History"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold transition select-none cursor-pointer shrink-0"
+                title="View My Saved Resumes & History"
                 id="header_dashboard_btn"
               >
                 <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="hidden md:inline">My Dashboard</span>
+                <span className="hidden md:inline">Dashboard</span>
               </button>
 
               <div className="hidden lg:flex flex-col text-right">
@@ -560,13 +556,13 @@ export default function App() {
               <button
                 onClick={() => {
                   signOut(auth);
-                  setSuccessToast("Signed out successfully!");
+                  setSuccessToast("Signed out successfully.");
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-md text-xs font-bold transition select-none cursor-pointer shrink-0"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg text-xs font-medium transition select-none cursor-pointer shrink-0"
                 title="Sign Out"
                 id="sign_out_btn"
               >
-                <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
@@ -577,7 +573,7 @@ export default function App() {
                 setErrorToast(null);
                 setIsAuthModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-650 hover:bg-indigo-600 text-white rounded-md text-xs font-bold transition select-none cursor-pointer shrink-0 ml-1.5"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition select-none cursor-pointer shrink-0 ml-1"
               id="header_login_btn"
             >
               <LogIn className="w-3.5 h-3.5 text-white" />
@@ -724,7 +720,7 @@ export default function App() {
         onImportSuccess={(parsedCV) => {
           setCvData(parsedCV);
           setViewMode("builder");
-          setSuccessToast("Excellent! AI successfully analyzed and populated your new CV!");
+          setSuccessToast("Excellent! Gemini AI parsed and successfully populated your new CV!");
         }}
       />
 
