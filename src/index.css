@@ -7,3 +7,41 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* Global Print Styles for Direct Vector Printing */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  header,
+  nav,
+  button,
+  .no-print,
+  #header_logo_home_btn,
+  #user-header-profile,
+  #mobile_tab_edit_btn,
+  #mobile_tab_preview_btn {
+    display: none !important;
+  }
+
+  #cv-pdf-render-target {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
+}

@@ -3,10 +3,9 @@ import {
   FileDown, RotateCcw, Printer, Sparkles, AlertCircle, CheckCircle, HelpCircle, Eye, FileImage,
   Edit3, LogOut, LogIn, User as UserIcon, LayoutDashboard, FileText
 } from "lucide-react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas-pro";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./lib/firebase";
+import { exportOptimizedPDF, exportVectorATSPDF, exportHighResPNG } from "./utils/pdfExport";
 
 // Data & Types
 import { CVData, DesignConfig, TemplateId } from "./types";
@@ -54,7 +53,7 @@ export default function App() {
   });
 
   // Action status triggers
-  const [isExporting, setIsExporting] = useState<"pdf" | "png" | null>(null);
+  const [isExporting, setIsExporting] = useState<"pdf" | "vector-pdf" | "png" | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [previewScale, setPreviewScale] = useState<number>(0.85);
@@ -160,8 +159,8 @@ export default function App() {
     }
   };
 
-  // High quality PDF / PNG generation
-  const handleExport = async (format: "pdf" | "png") => {
+  // Refactored high performance PDF / Vector ATS / PNG generation
+  const handleExport = async (format: "pdf" | "vector-pdf" | "png") => {
     // If not signed in, automatically trigger Auth Modal
     if (!currentUser) {
       setIsAuthModalOpen(true);
@@ -173,210 +172,76 @@ export default function App() {
     setIsExporting(format);
     setErrorToast(null);
 
+    const fileNameStr = cvData.personal.fullName.trim() 
+      ? cvData.personal.fullName.replace(/\s+/g, "_") 
+      : "Professional";
+
     try {
-      // Find rendered DOM node
       const element = document.getElementById("cv-pdf-render-target");
       if (!element) {
         throw new Error("Preview layout structure target missing.");
       }
 
-      // Add special class to enforce temporary full resolution scale
-      const originalStyle = element.style.transform;
-      element.style.transform = "none";
-
-      // Render crisp image from HTML elements using html2canvas
-      const scaleValue = 2.5; // High output resolution (240 DPI equivalent)
-      const canvas = await html2canvas(element, {
-        scale: scaleValue,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        windowWidth: 794, // Standard A4 width reference
-        windowHeight: 1123, // Standard A4 height reference
-        onclone: (clonedDoc) => {
-          // Fix for html2canvas crashing on Tailwind CSS v4's oklch() color syntax
-          try {
-            // 1. Gather all CSS rules from host document stylesheets (which include all Tailwind compiled rules)
-            let combinedCSSText = "";
-            for (let i = 0; i < document.styleSheets.length; i++) {
-              try {
-                const sheet = document.styleSheets[i];
-                const rules = sheet.cssRules || sheet.rules;
-                if (rules) {
-                  for (let j = 0; j < rules.length; j++) {
-                    combinedCSSText += rules[j].cssText + "\n";
-                  }
-                }
-              } catch (err) {
-                console.warn("Could not read stylesheet rules from host:", err);
-              }
-            }
-
-            // 2. Remove all link[rel="stylesheet"] elements and inline style tags from clonedDoc
-            // to prevent html2canvas from fetching raw un-transformed stylesheets containing oklch
-            const clonedLinks = clonedDoc.querySelectorAll('link[rel="stylesheet"]');
-            clonedLinks.forEach((el) => el.remove());
-
-            const clonedStyles = clonedDoc.querySelectorAll('style');
-            clonedStyles.forEach((el) => el.remove());
-
-            // 3. Match OKLCH & OKLAB values (including nested parentheses for CSS vars, e.g. var(--tw-bg-opacity))
-            const oklchRegex = /okl(ch|ab)\((?:[^)(]+|\([^)(]*\))*\)/g;
-
-            // Setup a temporary off-screen div on host document to resolve computed oklch/oklab to standard legacy RGB natively
-            const tempEl = document.createElement("div");
-            tempEl.style.display = "none";
-            document.body.appendChild(tempEl);
-
-            const oklchCache = new Map();
-            const convertOklch = (match: string) => {
-              if (oklchCache.has(match)) {
-                return oklchCache.get(match);
-              }
-              try {
-                tempEl.style.color = "";
-                tempEl.style.color = match;
-                const computed = window.getComputedStyle(tempEl).color;
-                if (computed && (computed.startsWith("rgb") || computed.startsWith("#") || computed === "transparent")) {
-                  oklchCache.set(match, computed);
-                  return computed;
-                }
-              } catch {
-                // fall through to default fallback
-              }
-              return "rgb(120, 120, 120)"; // neutral dark-gray fallback
-            };
-
-            // 4. Inject fully processed, oklch/oklab-free, standard legacy RGB CSS stylesheet
-            if (combinedCSSText) {
-              const sanitizedCSSText = combinedCSSText.replace(oklchRegex, convertOklch);
-              const legacyStyleTag = clonedDoc.createElement("style");
-              legacyStyleTag.textContent = sanitizedCSSText;
-              clonedDoc.head.appendChild(legacyStyleTag);
-            } else {
-              // Fallback: if we were unable to serialize host stylesheets, restore cloned style tags and sanitize them
-              clonedStyles.forEach((styleTag) => {
-                const text = styleTag.textContent || "";
-                const sanitized = text.replace(oklchRegex, convertOklch);
-                const restoredStyle = clonedDoc.createElement("style");
-                restoredStyle.textContent = sanitized;
-                clonedDoc.head.appendChild(restoredStyle);
-              });
-            }
-
-            // 5. Sanitize any inline style attributes where components might have defined local oklch/oklab
-            const inlineStyleNodes = clonedDoc.querySelectorAll("[style]");
-            inlineStyleNodes.forEach((nodeEl) => {
-              const inlineStyle = nodeEl.getAttribute("style") || "";
-              if (inlineStyle.includes("oklch") || inlineStyle.includes("oklab")) {
-                const sanitizedInline = inlineStyle.replace(oklchRegex, convertOklch);
-                nodeEl.setAttribute("style", sanitizedInline);
-              }
-            });
-
-            // Cleanup host helper element
-            if (tempEl.parentNode) {
-              tempEl.parentNode.removeChild(tempEl);
-            }
-          } catch (e) {
-            console.error("Failed to parse and patch oklch stylesheet styles", e);
-          }
-
-          const target = clonedDoc.getElementById("cv-pdf-render-target");
-          if (target) {
-            // Isolate layout from any parent transform/margins/paddings or width constraints
-            clonedDoc.body.innerHTML = "";
-            clonedDoc.body.appendChild(target);
-
-            target.style.transform = "none";
-            target.style.boxShadow = "none";
-            target.style.borderRadius = "0px";
-            target.style.width = "794px";
-            target.style.minHeight = "1123px";
-            target.style.margin = "0";
-            target.style.padding = "0";
-
-            clonedDoc.body.style.margin = "0";
-            clonedDoc.body.style.padding = "0";
-            clonedDoc.body.style.width = "794px";
-            clonedDoc.body.style.backgroundColor = "#ffffff";
-          }
-        }
-      });
-
-      // Restore scale
-      element.style.transform = originalStyle;
-
-      const imgData = canvas.toDataURL("image/png");
-      const fileNameStr = cvData.personal.fullName.trim() 
-        ? cvData.personal.fullName.replace(/\s+/g, "_") 
-        : "Professional";
-
-      if (format === "pdf") {
-        const pdf = new jsPDF({
-          orientation: "portrait",
-          unit: "mm",
-          format: "a4"
+      if (format === "vector-pdf") {
+        // Option A: True Vector ATS PDF via native browser vector print pipeline
+        exportVectorATSPDF("cv-pdf-render-target", {
+          fileName: fileNameStr,
+          templateName: designConfig.templateId,
+          onSuccess: (msg) => setSuccessToast(msg),
+          onError: (err) => setErrorToast(err.message),
         });
-
-        const pdfWidth = 210; // A4 mm dimensions
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`${fileNameStr}_CV.pdf`);
-        setSuccessToast(`Successfully downloaded polished ${designConfig.templateId} style CV PDF!`);
+      } else if (format === "pdf") {
+        // Option B: Ultra-optimized direct PDF download (<300 KB file size)
+        await exportOptimizedPDF(element, {
+          fileName: fileNameStr,
+          templateName: designConfig.templateId,
+          onSuccess: (msg) => setSuccessToast(msg),
+          onError: (err) => setErrorToast(err.message),
+        });
       } else {
-        const link = document.createElement("a");
-        link.download = `${fileNameStr}_CV.png`;
-        link.href = imgData;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setSuccessToast(`Successfully downloaded polished ${designConfig.templateId} style CV Image (PNG)!`);
+        // Crisp PNG image download
+        await exportHighResPNG(element, {
+          fileName: fileNameStr,
+          templateName: designConfig.templateId,
+          onSuccess: (msg) => setSuccessToast(msg),
+          onError: (err) => setErrorToast(err.message),
+        });
       }
 
-      // Reset loading state immediately once download is triggered
-      setIsExporting(null);
-
-      // Log download to Firestore subcollection if user is signed in as a non-blocking background task
+      // Log download to Firestore subcollection if user is signed in
       if (currentUser) {
         import("firebase/firestore").then(async ({ collection, addDoc, doc, setDoc, arrayUnion, increment }) => {
           const { db } = await import("./lib/firebase");
+          const logFormat = format === "vector-pdf" ? "pdf" : format;
           const newDownload = {
             timestamp: new Date().toISOString(),
-            format: format,
-            fileName: `${fileNameStr}_CV.${format}`
+            format: logFormat,
+            fileName: `${fileNameStr}_CV.${logFormat}`
           };
 
-          // Update main user document with the count and log entry in the background
           setDoc(doc(db, "users", currentUser.uid), {
             downloadsCount: increment(1),
             downloads: arrayUnion(newDownload)
-          }, { merge: true }).then(() => {
-            console.log("Successfully recorded CV download count in Firestore.");
-          }).catch(err => {
-            console.error("Error updating download count in Firestore:", err);
+          }, { merge: true }).catch(err => {
+            console.warn("Error updating download count in Firestore:", err);
           });
 
-          // Also add a snapshot to history subcollection in the background
           addDoc(collection(db, "users", currentUser.uid, "history"), {
             timestamp: new Date().toISOString(),
-            format: format,
-            fileName: `${fileNameStr}_CV.${format}`,
+            format: logFormat,
+            fileName: `${fileNameStr}_CV.${logFormat}`,
             cvData: cvData,
             designConfig: designConfig
-          }).then(() => {
-            console.log("Successfully recorded CV history snapshot in Firestore.");
           }).catch(err => {
-            console.error("Error recording CV history in Firestore:", err);
+            console.warn("Error recording CV history in Firestore:", err);
           });
         }).catch(fsErr => {
-          console.error("Failed to import Firestore in background:", fsErr);
+          console.warn("Background Firestore logging notice:", fsErr);
         });
       }
     } catch (error: any) {
-      console.error("Export crash error:", error);
-      setErrorToast(error.message || "Export process failed. Contact administrator.");
+      console.error("Export process notice:", error);
+      setErrorToast(error.message || "Export process encountered an issue. Please try again.");
     } finally {
       setIsExporting(null);
     }
@@ -479,11 +344,12 @@ export default function App() {
             <span className="hidden md:inline">Reset Draft</span>
           </button>
 
-          {/* Download PDF button */}
+          {/* Download PDF button (Ultra-optimized <300KB) */}
           <button
             onClick={() => handleExport("pdf")}
             disabled={isExporting !== null}
             className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-lg text-xs font-bold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
+            title="Download ultra-optimized PDF file (<300 KB)"
             id="download_pdf_btn"
           >
             {isExporting === "pdf" ? (
@@ -504,11 +370,25 @@ export default function App() {
             )}
           </button>
 
+          {/* Vector ATS Print button (100% Vector Text, Selectable, ATS-Friendly) */}
+          <button
+            onClick={() => handleExport("vector-pdf")}
+            disabled={isExporting !== null}
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-800 text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
+            title="Print or Save as 100% Vector ATS-compliant PDF"
+            id="print_vector_pdf_btn"
+          >
+            <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-400" />
+            <span className="hidden lg:inline">Vector ATS</span>
+            <span className="inline lg:hidden">Print</span>
+          </button>
+
           {/* Download PNG button */}
           <button
             onClick={() => handleExport("png")}
             disabled={isExporting !== null}
             className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
+            title="Download as PNG image"
             id="download_png_btn"
           >
             {isExporting === "png" ? (
