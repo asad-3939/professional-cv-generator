@@ -313,7 +313,7 @@ export default function App() {
                   <span className="hidden sm:inline">AI Professional CV Builder</span>
                   <span className="inline sm:hidden font-black">AI CV Builder</span>
                 </h1>
-                <p className="text-[10px] text-slate-400 font-medium hidden sm:block mt-0.5">Automatic PDF formatter and resume writer • <span className="text-indigo-400 font-semibold">developed by Asad Mustafa</span></p>
+                <p className="text-[10px] text-slate-400 font-medium hidden sm:block mt-0.5">Automatic PDF formatter and resume writer</p>
               </div>
             </div>
 

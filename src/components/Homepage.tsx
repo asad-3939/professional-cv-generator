@@ -93,7 +93,7 @@ export function Homepage({
             <div className="flex items-center gap-2">
               <span className="text-base font-bold text-white tracking-tight">AI Professional CV Builder</span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer • <span className="text-indigo-400 font-semibold">developed by Asad Mustafa</span></p>
+            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer</p>
           </div>
         </div>
 
