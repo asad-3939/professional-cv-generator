@@ -600,7 +600,7 @@ export default function App() {
         onImportSuccess={(parsedCV) => {
           setCvData(parsedCV);
           setViewMode("builder");
-          setSuccessToast("Excellent! Gemini AI parsed and successfully populated your new CV!");
+          setSuccessToast("Resume imported and populated successfully!");
         }}
       />
 

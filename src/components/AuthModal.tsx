@@ -88,13 +88,13 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalProps) {
             <span className="p-1.5 bg-indigo-600/20 text-indigo-400 rounded-lg">
               <Sparkles className="w-5 h-5" />
             </span>
-            <span className="text-xs font-bold tracking-widest text-indigo-400 uppercase">ACCESS REQUIRED</span>
+            <span className="text-xs font-bold tracking-widest text-indigo-400 uppercase">Save & Export</span>
           </div>
           <h2 className="text-xl font-black text-white tracking-tight" id="auth-modal-title">
             Sign in with Google
           </h2>
           <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-            Please authenticate using Google to safely save your resume, sync design presets across devices, and download high-resolution PDF or PNG layouts.
+            Sign in to safely save your resume, manage your formatting presets, and export high-resolution ATS-friendly PDFs from any device.
           </p>
         </div>
 
@@ -137,8 +137,8 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalProps) {
 
         {/* Footer info text */}
         <div className="p-4 bg-slate-950/60 border-t border-slate-800/40 text-center">
-          <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-            Secured by Firebase Google Sign-In
+          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">
+            Protected by Google Secure Sign-In
           </p>
         </div>
       </div>

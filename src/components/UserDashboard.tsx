@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { doc, getDoc, collection, query, orderBy, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, limit, getDocs, deleteDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { CVData, DesignConfig } from "../types";
 import { ResumeTemplates } from "./ResumeTemplates";
 
-// Safe import of icons from lucide-react instead of firebase/firestore
+// Safe import of icons from lucide-react
 import { 
   X as XIcon, History as HistoryIcon, Calendar as CalendarIcon, FileText as FileTextIcon, 
   Download as DownloadIcon, Sparkles as SparklesIcon, Loader2 as Loader2Icon, 
   RefreshCw as RefreshCwIcon, Layers as LayersIcon, Check as CheckIcon, Eye as EyeIcon, 
   HelpCircle as HelpCircleIcon, LayoutDashboard as LayoutDashboardIcon, 
-  Database as DatabaseIcon, ArrowRight as ArrowRightIcon, Trash2 as Trash2Icon,
+  Cloud as CloudIcon, ArrowRight as ArrowRightIcon, Trash2 as Trash2Icon,
   FileImage as FileImageIcon, Printer as PrinterIcon, Monitor as MonitorIcon
 } from "lucide-react";
 
@@ -37,6 +37,14 @@ interface UserDashboardProps {
   onRestoreCV: (cvData: CVData, designConfig?: DesignConfig) => void;
 }
 
+// In-memory cache for instantaneous dashboard opening (<0.01s)
+const userDashboardCache: Record<string, {
+  downloadsCount: number;
+  downloadsList: AIDownloadRecord[];
+  aiGenerationsList: AIGenerationRecord[];
+  lastFetched: number;
+}> = {};
+
 const fallbackDesignConfig: DesignConfig = {
   templateId: "modern",
   themeColor: "#4f46e5",
@@ -61,39 +69,61 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
   const [previewFile, setPreviewFile] = useState<AIDownloadRecord | null>(null);
   const [previewZoom, setPreviewZoom] = useState<number>(0.6);
 
-  const fetchUserData = async () => {
+  const fetchUserData = async (forceRefresh = false) => {
     if (!currentUser) return;
-    setLoading(true);
+    
+    // Check if we have cached data to render instantly
+    const cached = userDashboardCache[currentUser.uid];
+    const isCacheFresh = cached && (Date.now() - cached.lastFetched < 20000);
+    
+    if (cached && !forceRefresh) {
+      setDownloadsCount(cached.downloadsCount);
+      setDownloadsList(cached.downloadsList);
+      setAiGenerationsList(cached.aiGenerationsList);
+      if (isCacheFresh) {
+        return;
+      }
+    }
+
+    // If no cache, show quick loading state. If cached, background refresh silently
+    if (!cached) {
+      setLoading(true);
+    }
     setErrorMsg(null);
+
     try {
       const userDocRef = doc(db, "users", currentUser.uid);
-      const userSnap = await getDoc(userDocRef);
+      const historyRef = collection(db, "users", currentUser.uid, "history");
+      const q = query(historyRef, orderBy("timestamp", "desc"), limit(30));
+
+      // Fast parallel fetch of user profile and history
+      const [userSnap, querySnapshot] = await Promise.all([
+        getDoc(userDocRef),
+        getDocs(q).catch((histErr) => {
+          console.warn("History fetch notice:", histErr);
+          return null;
+        })
+      ]);
       
       let rootCvData: CVData | undefined = undefined;
       let mainDocDownloads: AIDownloadRecord[] = [];
+      let nextDownloadsCount = 0;
+      let nextAiGens: AIGenerationRecord[] = [];
       
-      if (userSnap.exists()) {
+      if (userSnap && userSnap.exists()) {
         const data = userSnap.data();
-        setDownloadsCount(data.downloadsCount || 0);
+        nextDownloadsCount = data.downloadsCount || 0;
         rootCvData = data.cvData;
         mainDocDownloads = data.downloads || [];
 
         const gens: AIGenerationRecord[] = data.aiGenerations || [];
-        const sortedGens = [...gens].sort(
+        nextAiGens = [...gens].sort(
           (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
-        setAiGenerationsList(sortedGens);
-      } else {
-        setDownloadsCount(0);
-        setAiGenerationsList([]);
       }
 
       let subDocDownloads: AIDownloadRecord[] = [];
-      try {
-        const historyRef = collection(db, "users", currentUser.uid, "history");
-        const q = query(historyRef, orderBy("timestamp", "desc"));
-        const querySnapshot = await getDocs(q);
-        
+      if (querySnapshot) {
         querySnapshot.forEach((docSnap) => {
           const d = docSnap.data();
           subDocDownloads.push({
@@ -105,8 +135,6 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
             designConfig: d.designConfig
           });
         });
-      } catch (histErr) {
-        console.error("Error fetching history subcollection:", histErr);
       }
 
       // Merge both sources of downloads uniquely
@@ -136,10 +164,20 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
 
+      setDownloadsCount(nextDownloadsCount);
+      setAiGenerationsList(nextAiGens);
       setDownloadsList(sortedMerged);
+
+      // Save to memory cache for instantaneous subsequent access
+      userDashboardCache[currentUser.uid] = {
+        downloadsCount: nextDownloadsCount,
+        downloadsList: sortedMerged,
+        aiGenerationsList: nextAiGens,
+        lastFetched: Date.now()
+      };
     } catch (err: any) {
-      console.error("Error fetching user dashboard data:", err);
-      setErrorMsg("Failed to synchronize dashboard stats. Check network connectivity.");
+      console.error("Dashboard data load notice:", err);
+      setErrorMsg("Unable to refresh dashboard data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -154,13 +192,19 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
   const handleDeleteHistory = async (itemId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentUser) return;
-    if (!window.confirm("Are you sure you want to delete this historical download snapshot?")) return;
+    if (!window.confirm("Are you sure you want to delete this saved export?")) return;
 
     try {
       await deleteDoc(doc(db, "users", currentUser.uid, "history", itemId));
-      setDownloadsList((prev) => prev.filter((item) => item.id !== itemId));
+      setDownloadsList((prev) => {
+        const updated = prev.filter((item) => item.id !== itemId);
+        if (userDashboardCache[currentUser.uid]) {
+          userDashboardCache[currentUser.uid].downloadsList = updated;
+        }
+        return updated;
+      });
     } catch (err) {
-      console.error("Error deleting history record:", err);
+      console.error("Error removing export record:", err);
     }
   };
 
@@ -184,11 +228,11 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                 <h3 className="text-sm font-black text-white flex items-center gap-2">
                   <span>{previewFile.fileName}</span>
                   <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded font-mono text-slate-400 uppercase">
-                    Snapshot {previewFile.format}
+                    {previewFile.format.toUpperCase()} Preview
                   </span>
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Archived on: <span className="font-mono text-indigo-400">{new Date(previewFile.timestamp).toLocaleString()}</span>
+                  Saved on: <span className="font-mono text-indigo-400">{new Date(previewFile.timestamp).toLocaleString()}</span>
                 </p>
               </div>
             </div>
@@ -218,7 +262,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
               <button 
                 onClick={() => setPreviewFile(null)}
                 className="p-2 bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 rounded-xl transition cursor-pointer"
-                title="Return to Dashboard list"
+                title="Return to list"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -228,10 +272,10 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
           {/* Core Body: Left Info / Right Interactive Canvas Preview */}
           <div className="flex-grow flex flex-col lg:flex-row overflow-hidden py-6 gap-6">
             
-            {/* Left Column: Metadata & Detailed Overview */}
+            {/* Left Column: Details Overview */}
             <div className="w-full lg:w-[30%] shrink-0 flex flex-col justify-between overflow-y-auto bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 gap-6 text-left">
               <div>
-                <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase block mb-1">Document Profile Snapshot</span>
+                <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase block mb-1">Resume Snapshot</span>
                 <h4 className="text-lg font-extrabold text-white leading-tight">
                   {previewFile.cvData?.personal?.fullName || "Untitled Profile"}
                 </h4>
@@ -260,11 +304,11 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                   </div>
                 )}
 
-                {/* Technical Profile Attributes */}
+                {/* Applied Design Attributes */}
                 <div className="mt-6 bg-slate-950/40 p-4 rounded-xl border border-slate-800/40 text-xs space-y-3">
                   <h5 className="font-bold text-slate-400 text-[10px] tracking-widest uppercase flex items-center gap-1.5">
                     <LayersIcon className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Applied Design Settings</span>
+                    <span>Applied Formatting</span>
                   </h5>
                   <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-slate-400">
                     <div>Spacing: <span className="text-white capitalize">{previewFile.designConfig?.spacing || "normal"}</span></div>
@@ -277,7 +321,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                 {/* Summary Section snippet */}
                 {previewFile.cvData?.summary && (
                   <div className="mt-6">
-                    <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase block mb-1.5">Profile Summary Snippet</span>
+                    <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase block mb-1.5">Professional Summary</span>
                     <p className="text-xs text-slate-400 leading-relaxed italic bg-slate-950/20 p-3 rounded-lg border border-slate-800/30">
                       "{previewFile.cvData.summary.substring(0, 160)}..."
                     </p>
@@ -330,8 +374,8 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
 
           {/* Bottom Status bar */}
           <div className="border-t border-slate-800 pt-4 shrink-0 text-center">
-            <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-              Live Preview Rendering Engine • PDF Resolution Equivalent: 240 DPI
+            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">
+              High-Resolution Print Quality Preview
             </p>
           </div>
         </div>
@@ -356,7 +400,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                 Saved Resumes & Exports
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Version history synced to <span className="font-mono text-indigo-400">{currentUser.email}</span>
+                Account: <span className="text-indigo-400 font-medium">{currentUser.email}</span>
               </p>
             </div>
           </div>
@@ -381,7 +425,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
           </div>
 
           <div className="p-3 bg-slate-900 border border-slate-800/60 rounded-xl flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Enhancements</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">AI Improvements</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-xl font-bold text-indigo-400" id="dashboard-stat-ai">{aiGenerationsList.length}</span>
               <span className="text-[10px] font-medium text-slate-400">actions</span>
@@ -389,10 +433,10 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
           </div>
 
           <div className="p-3 bg-slate-900 border border-slate-800/60 rounded-xl flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cloud Sync</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Storage Status</span>
             <div className="flex items-baseline gap-1 mt-1">
-              <DatabaseIcon className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-xs font-semibold text-emerald-400">Connected</span>
+              <CloudIcon className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs font-semibold text-emerald-400">Active</span>
             </div>
           </div>
         </div>
@@ -407,7 +451,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
               }`}
               id="tab-downloads-history"
             >
-              Export Snapshots ({downloadsList.length})
+              Saved Exports ({downloadsList.length})
               {activeTab === "downloads" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
               )}
@@ -419,7 +463,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
               }`}
               id="tab-ai-history"
             >
-              Enhancement Log ({aiGenerationsList.length})
+              AI Enhancements ({aiGenerationsList.length})
               {activeTab === "ai" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-full" />
               )}
@@ -427,13 +471,13 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
           </div>
 
           <button
-            onClick={fetchUserData}
+            onClick={() => fetchUserData(true)}
             disabled={loading}
             className="text-slate-400 hover:text-white transition flex items-center gap-1.5 text-xs font-medium cursor-pointer"
             id="refresh-dashboard-btn"
           >
             <RefreshCwIcon className={`w-3.5 h-3.5 ${loading ? "animate-spin text-indigo-400" : ""}`} />
-            <span>Sync</span>
+            <span>Refresh</span>
           </button>
         </div>
 
@@ -445,10 +489,10 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
             </div>
           )}
 
-          {loading ? (
+          {loading && downloadsList.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center py-12 space-y-3">
               <Loader2Icon className="w-8 h-8 animate-spin text-indigo-400" />
-              <p className="text-xs text-slate-400 font-mono">Synchronizing from Firebase Firestore...</p>
+              <p className="text-xs text-slate-400 font-medium">Loading your saved exports...</p>
             </div>
           ) : activeTab === "ai" ? (
             /* AI Generations Tab Content */
@@ -458,9 +502,9 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                   <SparklesIcon className="w-6 h-6 text-indigo-400" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-300">No AI-generated profiles recorded yet</p>
+                  <p className="text-xs font-bold text-slate-300">No AI enhancements recorded yet</p>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                    Trigger any AI feature inside the CV form builder, such as generating automated summaries, polishing experiences, or suggesting dynamic skills to see them tracked here!
+                    Trigger smart features inside the editor, such as generating summaries, polishing experience descriptions, or suggesting skills to view them here.
                   </p>
                 </div>
               </div>
@@ -495,7 +539,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                         <p className="text-xs text-indigo-300 mt-1 font-medium">{item.description}</p>
                         {item.details && (
                           <div className="mt-2 bg-slate-900/60 rounded-lg p-2.5 border border-slate-800/40">
-                            <p className="text-[11px] text-slate-400 font-mono leading-relaxed break-words italic text-left">
+                            <p className="text-[11px] text-slate-400 leading-relaxed break-words italic text-left">
                               "{item.details}"
                             </p>
                           </div>
@@ -514,16 +558,16 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                   <DownloadIcon className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-300">No downloads performed yet</p>
+                  <p className="text-xs font-bold text-slate-300">No downloads saved yet</p>
                   <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
-                    Once you download your CV as a PDF document or a PNG layout image, your operations will be tracked right here!
+                    Once you export your CV as a PDF or PNG document, your versions will appear here for easy access.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-3.5" id="downloads-list">
                 <div className="text-left text-[11px] text-slate-400 font-medium px-1 pb-1">
-                  Click <strong className="text-indigo-400">Open File</strong> next to any past download to instantly load and view that specific PDF/PNG version in the editor.
+                  Click <strong className="text-indigo-400">Open File</strong> next to any past download to view or restore that version in the editor.
                 </div>
                 {downloadsList.map((item, idx) => {
                   const formattedDate = new Date(item.timestamp).toLocaleString(undefined, {
@@ -552,7 +596,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                           <p className="text-[10px] text-slate-500 font-mono mt-0.5">{formattedDate}</p>
                           {item.cvData?.personal?.fullName && (
                             <p className="text-[11px] text-indigo-400 font-medium truncate mt-1">
-                              Snapshot: <span className="text-slate-300">{item.cvData.personal.fullName}</span> {item.cvData.personal.jobTitle ? `(${item.cvData.personal.jobTitle})` : ""}
+                              Resume: <span className="text-slate-300">{item.cvData.personal.fullName}</span> {item.cvData.personal.jobTitle ? `(${item.cvData.personal.jobTitle})` : ""}
                             </p>
                           )}
                         </div>
@@ -571,7 +615,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                           <button
                             onClick={() => setPreviewFile(item)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-bold transition cursor-pointer hover:scale-[1.01]"
-                            title="Open and view this PDF/PNG file snapshot"
+                            title="Open and preview this version"
                           >
                             <EyeIcon className="w-3.5 h-3.5" />
                             <span>Open File</span>
@@ -582,7 +626,7 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
                           <button
                             onClick={(e) => handleDeleteHistory(item.id!, e)}
                             className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition cursor-pointer"
-                            title="Delete snapshot log"
+                            title="Delete snapshot"
                           >
                             <Trash2Icon className="w-3.5 h-3.5" />
                           </button>
@@ -598,8 +642,8 @@ export function UserDashboard({ isOpen, onClose, currentUser, onRestoreCV }: Use
 
         {/* Footer */}
         <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between shrink-0">
-          <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-            Firestore synchronized
+          <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">
+            Auto-saved to your account
           </p>
           <button
             onClick={onClose}
