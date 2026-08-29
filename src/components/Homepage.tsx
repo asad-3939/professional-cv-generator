@@ -13,6 +13,8 @@ interface HomepageProps {
   onSignOut: () => void;
   onOpenDashboard: () => void;
   onOpenAIImport: () => void;
+  onNavigatePrivacy?: () => void;
+  onNavigateTerms?: () => void;
 }
 
 export function Homepage({ 
@@ -21,7 +23,9 @@ export function Homepage({
   onSignIn, 
   onSignOut, 
   onOpenDashboard,
-  onOpenAIImport
+  onOpenAIImport,
+  onNavigatePrivacy,
+  onNavigateTerms
 }: HomepageProps) {
   const [selectedTemplateTab, setSelectedTemplateTab] = useState<TemplateId>("modern");
 
@@ -584,18 +588,41 @@ export function Homepage({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            <span className="text-slate-400">© 2026 AI Professional CV Builder. Developed by <span className="text-indigo-400 font-semibold">Asad Mustafa</span>. All rights reserved.</span>
+          <div className="flex flex-wrap items-center justify-center gap-5 md:gap-6">
+            <button
+              onClick={onNavigatePrivacy}
+              className="text-slate-400 hover:text-slate-200 transition cursor-pointer text-xs"
+              id="footer_privacy_link"
+            >
+              Privacy Policy
+            </button>
+            <button
+              onClick={onNavigateTerms}
+              className="text-slate-400 hover:text-slate-200 transition cursor-pointer text-xs"
+              id="footer_terms_link"
+            >
+              Terms of Service
+            </button>
+            <button
+              onClick={() => onStartBuilding()}
+              className="text-indigo-400 hover:text-indigo-300 font-semibold transition cursor-pointer text-xs"
+              id="footer_builder_link"
+            >
+              Resume Builder
+            </button>
             
             <a 
               href="mailto:asadkhr39@gmail.com?subject=Inquiry regarding AI Professional CV Builder"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 rounded-lg transition cursor-pointer select-none font-semibold text-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 rounded-lg transition cursor-pointer select-none font-semibold text-xs ml-2"
               id="homepage_contact_link"
             >
               <Mail className="w-3.5 h-3.5 text-indigo-400" />
               <span>Contact Support</span>
             </a>
           </div>
+        </div>
+        <div className="max-w-6xl mx-auto mt-6 pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500">
+          <p>© 2026 AI Professional CV Builder. All rights reserved.</p>
         </div>
       </footer>
 

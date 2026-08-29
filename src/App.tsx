@@ -18,8 +18,54 @@ import { AuthModal } from "./components/AuthModal";
 import { UserDashboard } from "./components/UserDashboard";
 import { Homepage } from "./components/Homepage";
 import { AIAssistantModal } from "./components/AIAssistantModal";
+import { PrivacyPolicy } from "./components/PrivacyPolicy";
+import { TermsOfService } from "./components/TermsOfService";
+
+export type AppRoute = "home" | "builder" | "privacy" | "terms";
 
 export default function App() {
+  // Client-side route state matching browser URL path
+  const [currentRoute, setCurrentRoute] = useState<AppRoute>(() => {
+    if (typeof window !== "undefined") {
+      const p = window.location.pathname.toLowerCase().replace(/\/+$/, "") || "/";
+      if (p === "/privacy") return "privacy";
+      if (p === "/terms") return "terms";
+      if (p === "/builder") return "builder";
+    }
+    return "home";
+  });
+
+  const navigateTo = (route: AppRoute) => {
+    setCurrentRoute(route);
+    const targetPath = route === "home" ? "/" : `/${route}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, "", targetPath);
+    }
+    if (route === "home") {
+      document.title = "AI Professional CV Builder";
+    } else if (route === "builder") {
+      document.title = "CV Builder Workspace | AI Professional CV Builder";
+    }
+  };
+
+  // Sync with browser back/forward history navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const p = window.location.pathname.toLowerCase().replace(/\/+$/, "") || "/";
+      if (p === "/privacy") {
+        setCurrentRoute("privacy");
+      } else if (p === "/terms") {
+        setCurrentRoute("terms");
+      } else if (p === "/builder") {
+        setCurrentRoute("builder");
+      } else {
+        setCurrentRoute("home");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   // Load data from localStorage or fallback to template data
   const [cvData, setCvData] = useState<CVData>(() => {
     try {
@@ -58,7 +104,6 @@ export default function App() {
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [previewScale, setPreviewScale] = useState<number>(0.85);
   const [activeMobileTab, setActiveMobileTab] = useState<"edit" | "preview">("edit");
-  const [viewMode, setViewMode] = useState<"landing" | "builder">("landing");
   const [formActiveTab, setFormActiveTab] = useState<string>("personal");
 
   // User States
@@ -249,7 +294,7 @@ export default function App() {
 
   return (
     <div className={`flex flex-col bg-slate-950 font-sans tracking-tight text-slate-100 select-none ${
-      viewMode === "landing" ? "min-h-screen overflow-y-auto" : "h-screen overflow-hidden"
+      currentRoute === "builder" ? "h-screen overflow-hidden" : "min-h-screen overflow-y-auto"
     }`}>
       
       {/* Dynamic Notifications */}
@@ -267,7 +312,20 @@ export default function App() {
         </div>
       )}
 
-      {viewMode === "landing" ? (
+      {/* Page Routing Views */}
+      {currentRoute === "privacy" ? (
+        <PrivacyPolicy 
+          onNavigateHome={() => navigateTo("home")}
+          onNavigateTerms={() => navigateTo("terms")}
+          onNavigateBuilder={() => navigateTo("builder")}
+        />
+      ) : currentRoute === "terms" ? (
+        <TermsOfService 
+          onNavigateHome={() => navigateTo("home")}
+          onNavigatePrivacy={() => navigateTo("privacy")}
+          onNavigateBuilder={() => navigateTo("builder")}
+        />
+      ) : currentRoute === "home" ? (
         <Homepage 
           currentUser={currentUser}
           onStartBuilding={(templateId, initialTab) => {
@@ -279,7 +337,7 @@ export default function App() {
             } else {
               setFormActiveTab("personal");
             }
-            setViewMode("builder");
+            navigateTo("builder");
           }}
           onSignIn={() => {
             setSuccessToast(null);
@@ -294,13 +352,15 @@ export default function App() {
           onOpenAIImport={() => {
             setIsAIAssistantOpen(true);
           }}
+          onNavigatePrivacy={() => navigateTo("privacy")}
+          onNavigateTerms={() => navigateTo("terms")}
         />
       ) : (
         <>
           {/* Primary Top Utilities Header Bar */}
           <header className="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-3 md:px-6 shrink-0 relative z-30 shadow-md">
             <div 
-              onClick={() => setViewMode("landing")}
+              onClick={() => navigateTo("home")}
               className="flex items-center gap-2 sm:gap-2.5 cursor-pointer hover:opacity-90 select-none group"
               title="Go to Homepage"
               id="header_logo_home_btn"
@@ -565,6 +625,38 @@ export default function App() {
         </div>
 
       </div>
+
+      {/* Builder Minimal Bottom Navigation Footer */}
+      <footer className="h-7 bg-slate-950 border-t border-slate-850 px-4 flex items-center justify-between text-[11px] text-slate-500 shrink-0 select-none z-20">
+        <div className="flex items-center gap-3">
+          <span className="font-semibold text-slate-400">AI Professional CV Builder</span>
+          <span className="hidden sm:inline text-slate-700">•</span>
+          <span className="hidden sm:inline text-slate-500">Auto-saved to local draft & cloud profile</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigateTo("privacy")} 
+            className="hover:text-slate-300 transition cursor-pointer"
+            id="builder_footer_privacy_btn"
+          >
+            Privacy Policy
+          </button>
+          <button 
+            onClick={() => navigateTo("terms")} 
+            className="hover:text-slate-300 transition cursor-pointer"
+            id="builder_footer_terms_btn"
+          >
+            Terms of Service
+          </button>
+          <button 
+            onClick={() => navigateTo("home")} 
+            className="hover:text-indigo-400 transition cursor-pointer font-medium"
+            id="builder_footer_home_btn"
+          >
+            Home
+          </button>
+        </div>
+      </footer>
         </>
       )}
 
@@ -587,7 +679,7 @@ export default function App() {
             setDesignConfig(restoredDesign);
           }
           setIsHistoryModalOpen(false); // Auto close the dashboard so they view the file instantly in the editor
-          setViewMode("builder"); // Seamless transition to the builder view
+          navigateTo("builder"); // Seamless transition to the builder view
           setSuccessToast("Successfully restored chosen CV snapshot and style layout!");
         }}
       />
@@ -599,7 +691,7 @@ export default function App() {
         currentUser={currentUser}
         onImportSuccess={(parsedCV) => {
           setCvData(parsedCV);
-          setViewMode("builder");
+          navigateTo("builder");
           setSuccessToast("Resume imported and populated successfully!");
         }}
       />
