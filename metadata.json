@@ -1,6 +1,6 @@
 {
   "name": "AI Professional CV Builder",
-  "description": "A modern, professional resume and CV generator with customizable templates, real-time preview, and high-quality PDF exports.",
+  "description": "Build ATS-friendly, professional resumes in minutes with AI Professional CV Generator. Choose modern templates, optimize keywords, and download free PDFs.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
