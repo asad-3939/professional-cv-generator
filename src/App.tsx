@@ -20,6 +20,8 @@ import { Homepage } from "./components/Homepage";
 import { AIAssistantModal } from "./components/AIAssistantModal";
 import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { TermsOfService } from "./components/TermsOfService";
+import { UserDropdown } from "./components/UserDropdown";
+import { AccountSettingsModal } from "./components/AccountSettingsModal";
 
 export type AppRoute = "home" | "builder" | "privacy" | "terms";
 
@@ -109,6 +111,7 @@ export default function App() {
   // User States
   const [currentUser, setCurrentUser] = useState<{ email: string; displayName: string; uid: string } | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState<boolean>(false);
   const [aiAssistantInitialTab, setAiAssistantInitialTab] = useState<"import" | "ats">("import");
@@ -209,7 +212,7 @@ export default function App() {
     // If not signed in, automatically trigger Auth Modal
     if (!currentUser) {
       setIsAuthModalOpen(true);
-      setErrorToast("Please sign in with Google to download your CV.");
+      setErrorToast("Please sign in or create an account to download your CV.");
       return;
     }
 
@@ -349,6 +352,7 @@ export default function App() {
             setSuccessToast("Signed out successfully!");
           }}
           onOpenDashboard={() => setIsHistoryModalOpen(true)}
+          onOpenSettings={() => setIsAccountSettingsOpen(true)}
           onOpenAIImport={() => {
             setIsAIAssistantOpen(true);
           }}
@@ -471,40 +475,18 @@ export default function App() {
 
           {/* User Auth controls */}
           {currentUser ? (
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-3 ml-1" id="user-header-profile">
-              <button
-                onClick={() => setIsHistoryModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold transition select-none cursor-pointer shrink-0"
-                title="View My Saved Resumes & History"
-                id="header_dashboard_btn"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="hidden md:inline">Dashboard</span>
-              </button>
-
-              <div className="hidden lg:flex flex-col text-right">
-                <span className="text-[11px] font-bold text-white max-w-[120px] truncate leading-none">
-                  {currentUser.displayName}
-                </span>
-                <span className="text-[9px] text-slate-400 font-mono mt-0.5 max-w-[120px] truncate">
-                  {currentUser.email}
-                </span>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-indigo-400 text-xs shadow shrink-0">
-                {currentUser.displayName.charAt(0).toUpperCase()}
-              </div>
-              <button
-                onClick={() => {
+            <div className="border-l border-slate-800 pl-2 sm:pl-3 ml-0.5 sm:ml-1 shrink-0">
+              <UserDropdown
+                currentUser={currentUser}
+                onOpenDashboard={() => setIsHistoryModalOpen(true)}
+                onOpenSettings={() => setIsAccountSettingsOpen(true)}
+                onSignOut={() => {
                   signOut(auth);
                   setSuccessToast("Signed out successfully.");
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg text-xs font-medium transition select-none cursor-pointer shrink-0"
-                title="Sign Out"
-                id="sign_out_btn"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sign Out</span>
-              </button>
+                onNavigatePrivacy={() => navigateTo("privacy")}
+                onNavigateTerms={() => navigateTo("terms")}
+              />
             </div>
           ) : (
             <button
@@ -666,6 +648,20 @@ export default function App() {
         onAuthSuccess={(user) => {
           setCurrentUser(user);
           setSuccessToast(`Successfully signed in as ${user.displayName}!`);
+        }}
+      />
+
+      <AccountSettingsModal
+        isOpen={isAccountSettingsOpen}
+        onClose={() => setIsAccountSettingsOpen(false)}
+        currentUser={currentUser}
+        onOpenDashboard={() => {
+          setIsAccountSettingsOpen(false);
+          setIsHistoryModalOpen(true);
+        }}
+        onProfileUpdated={(newName) => {
+          setCurrentUser(prev => prev ? { ...prev, displayName: newName } : null);
+          setSuccessToast("Profile details updated successfully.");
         }}
       />
 

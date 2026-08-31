@@ -8,4 +8,4 @@ Allow: /android-chrome-*.png
 Allow: /site.webmanifest
 
 # Reference canonical sitemap
-Sitemap: https://procvmaker.online/sitemap.xml
+Sitemap: https://www.procvmaker.online/sitemap.xml

@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { TemplateId } from "../types";
+import { UserDropdown } from "./UserDropdown";
 
 interface HomepageProps {
   currentUser: { email: string; displayName: string; uid: string } | null;
@@ -12,6 +13,7 @@ interface HomepageProps {
   onSignIn: () => void;
   onSignOut: () => void;
   onOpenDashboard: () => void;
+  onOpenSettings?: () => void;
   onOpenAIImport: () => void;
   onNavigatePrivacy?: () => void;
   onNavigateTerms?: () => void;
@@ -23,6 +25,7 @@ export function Homepage({
   onSignIn, 
   onSignOut, 
   onOpenDashboard,
+  onOpenSettings,
   onOpenAIImport,
   onNavigatePrivacy,
   onNavigateTerms
@@ -109,36 +112,20 @@ export function Homepage({
         </nav>
 
         {/* User Account / Primary Action */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           {currentUser ? (
-            <div className="flex items-center gap-2" id="homepage_user_controls">
-              <button
-                onClick={onOpenDashboard}
-                className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
-                title="View Saved Resumes & Export History"
-                id="homepage_dashboard_btn"
-              >
-                <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="hidden sm:inline">My Resumes</span>
-              </button>
-
-              <div className="w-8 h-8 rounded-full bg-indigo-950 border border-indigo-700 flex items-center justify-center font-bold text-indigo-300 text-xs shadow-sm shrink-0">
-                {currentUser.displayName.charAt(0).toUpperCase()}
-              </div>
-
-              <button
-                onClick={onSignOut}
-                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-900 rounded-lg border border-transparent hover:border-slate-800 transition cursor-pointer"
-                title="Sign Out"
-                id="homepage_signout_btn"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            <UserDropdown
+              currentUser={currentUser}
+              onOpenDashboard={onOpenDashboard}
+              onOpenSettings={onOpenSettings || onOpenDashboard}
+              onSignOut={onSignOut}
+              onNavigatePrivacy={onNavigatePrivacy}
+              onNavigateTerms={onNavigateTerms}
+            />
           ) : (
             <button
               onClick={onSignIn}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-slate-300 hover:text-white hover:bg-slate-900 rounded-lg text-xs font-semibold transition cursor-pointer border border-transparent hover:border-slate-800"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-slate-300 hover:text-white hover:bg-slate-900 rounded-xl text-xs font-semibold transition cursor-pointer border border-transparent hover:border-slate-800"
               id="homepage_signin_btn"
             >
               <LogIn className="w-3.5 h-3.5 text-slate-400" />
@@ -148,7 +135,7 @@ export function Homepage({
 
           <button
             onClick={() => onStartBuilding()}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition shadow-sm hover:shadow-indigo-600/20 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-sm hover:shadow-indigo-600/20 cursor-pointer"
             id="homepage_top_cta_btn"
           >
             <span>Create My CV</span>
