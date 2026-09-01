@@ -2,40 +2,65 @@
   "entities": {
     "User": {
       "title": "User Profile",
-      "description": "User account and CV details saved by the user.",
+      "description": "User account profile and preferences.",
       "type": "object",
       "properties": {
         "email": { "type": "string" },
-        "fullName": { "type": "string" },
+        "displayName": { "type": "string" },
         "createdAt": { "type": "string" },
-        "cvData": {
-          "type": "object",
-          "description": "The CV/Resume data object including personal info, summary, experience, education, skills, etc."
-        }
+        "lastLoginAt": { "type": "string" },
+        "activeCvId": { "type": "string" },
+        "downloadsCount": { "type": "number" }
       },
       "required": ["email"]
     },
+    "CV": {
+      "title": "Curriculum Vitae",
+      "description": "Individual CV document containing structured resume sections and styling configurations.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "data": {
+          "type": "object",
+          "description": "Structured CV sections including personal info, summary, experience, education, skills, projects, certifications, languages."
+        },
+        "design": {
+          "type": "object",
+          "description": "Styling configurations including template, fonts, spacing, and colors."
+        },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "isDefault": { "type": "boolean" }
+      },
+      "required": ["title", "data", "design"]
+    },
     "History": {
       "title": "CV History Log",
-      "description": "Log of generated and downloaded CV snapshots.",
+      "description": "Log of generated and downloaded CV export snapshots.",
       "type": "object",
       "properties": {
         "timestamp": { "type": "string" },
         "format": { "type": "string" },
         "fileName": { "type": "string" },
-        "cvData": { "type": "object" }
+        "cvData": { "type": "object" },
+        "designConfig": { "type": "object" }
       },
-      "required": ["timestamp", "format", "cvData"]
+      "required": ["timestamp", "format"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
-      "description": "User profiles and CV/Resume data."
+      "description": "User profiles and metadata."
+    },
+    "/users/{userId}/cvs/{cvId}": {
+      "schema": "CV",
+      "description": "User created and edited CV documents."
     },
     "/users/{userId}/history/{historyId}": {
       "schema": "History",
-      "description": "Snapshots of downloaded/generated CVs."
+      "description": "Snapshots of downloaded and exported CVs."
     }
   }
 }
+

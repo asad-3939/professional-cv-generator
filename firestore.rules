@@ -1,11 +1,51 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Default deny all unknown paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common security primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User profiles
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      match /{allChildren=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false; // Users cannot scrape all user accounts
+      allow create: if isOwner(userId) && isValidId(userId);
+      allow update: if isOwner(userId) && isValidId(userId);
+      allow delete: if false;
+
+      // User CVs subcollection
+      match /cvs/{cvId} {
+        allow get: if isOwner(userId) && isValidId(cvId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(cvId);
+        allow update: if isOwner(userId) && isValidId(cvId);
+        allow delete: if isOwner(userId) && isValidId(cvId);
+      }
+
+      // User Export History subcollection
+      match /history/{historyId} {
+        allow get: if isOwner(userId) && isValidId(historyId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(historyId);
+        allow update: if false; // Export history records are immutable snapshots
+        allow delete: if isOwner(userId) && isValidId(historyId);
       }
     }
   }
 }
+

@@ -83,3 +83,16 @@ export interface DesignConfig {
   showCertificationsSection: boolean;
   showLanguagesSection: boolean;
 }
+
+export interface CVRecord {
+  id: string;
+  title: string;
+  data: CVData;
+  design: DesignConfig;
+  createdAt: any;
+  updatedAt: any;
+  isDefault?: boolean;
+}
+
+export type AutosaveStatus = "saved" | "saving" | "local" | "error";
+
