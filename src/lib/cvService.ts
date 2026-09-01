@@ -69,10 +69,10 @@ export async function syncUserProfile(user: { uid: string; email: string; displa
 }
 
 
-// Fetch all CVs for the authenticated user
-export async function getUserCVs(uid: string): Promise<CVRecord[]> {
+// Fetch all CVs for the authenticated user with limit constraint
+export async function getUserCVs(uid: string, limitCount = 20): Promise<CVRecord[]> {
   const cvsRef = collection(db, "users", uid, "cvs");
-  const q = query(cvsRef, orderBy("updatedAt", "desc"));
+  const q = query(cvsRef, orderBy("updatedAt", "desc"), limit(limitCount));
   try {
     const querySnapshot = await getDocs(q);
     const cvList: CVRecord[] = [];

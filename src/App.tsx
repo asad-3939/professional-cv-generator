@@ -121,6 +121,7 @@ export default function App() {
 
   // User States
   const [currentUser, setCurrentUser] = useState<{ email: string; displayName: string; uid: string } | null>(null);
+  const [cachedUserCVs, setCachedUserCVs] = useState<CVRecord[]>([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
@@ -142,12 +143,15 @@ export default function App() {
         setCurrentUser(loggedUser);
         setAutosaveStatus("saving");
 
-        try {
-          // Sync user profile document
-          await syncUserProfile(loggedUser);
+        // 1. Non-blocking profile synchronization in the background
+        syncUserProfile(loggedUser).catch((e) => {
+          console.warn("Background profile sync notice:", e);
+        });
 
-          // Fetch user's CV documents
-          const userCVs = await getUserCVs(user.uid);
+        // 2. Fetch user's CV documents immediately without waiting for profile writes
+        try {
+          const userCVs = await getUserCVs(user.uid, 20);
+          setCachedUserCVs(userCVs);
           
           if (userCVs.length > 0) {
             // Load the most recently updated CV or default
@@ -167,6 +171,7 @@ export default function App() {
             const created = await createCV(user.uid, cvData, designConfig, initialTitle, true);
             setActiveCvId(created.id);
             setActiveCvTitle(created.title);
+            setCachedUserCVs([created]);
             setAutosaveStatus("saved");
             setSuccessToast(`Created your first cloud resume "${created.title}"!`);
           }
@@ -177,6 +182,7 @@ export default function App() {
       } else {
         setCurrentUser(null);
         setActiveCvId(null);
+        setCachedUserCVs([]);
         setAutosaveStatus("local");
       }
       isInitialLoadRef.current = false;
@@ -760,6 +766,8 @@ export default function App() {
         onClose={() => setIsHistoryModalOpen(false)}
         currentUser={currentUser}
         activeCvId={activeCvId}
+        initialCVs={cachedUserCVs}
+        onCVListUpdated={setCachedUserCVs}
         onSelectCV={(cvRecord) => {
           setActiveCvId(cvRecord.id);
           setActiveCvTitle(cvRecord.title);

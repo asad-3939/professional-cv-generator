@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
 import { 
   X as XIcon, History as HistoryIcon, Calendar as CalendarIcon, FileText as FileTextIcon, 
   Download as DownloadIcon, Sparkles as SparklesIcon, Loader2 as Loader2Icon, 
@@ -8,7 +8,6 @@ import {
   Edit2 as Edit2Icon, CheckCircle2 as CheckCircle2Icon
 } from "lucide-react";
 import { CVData, DesignConfig, CVRecord, TemplateId } from "../types";
-import { ResumeTemplates } from "./ResumeTemplates";
 import { 
   getUserCVs, 
   createCV, 
@@ -19,6 +18,11 @@ import {
 import { initialCVData, initialDesignConfig } from "../sampleData";
 import { collection, query, orderBy, limit, getDocs, deleteDoc, doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
+
+// Lazy-load full ResumeTemplates component only for lightbox preview/restore
+const LazyResumeTemplates = lazy(() => 
+  import("./ResumeTemplates").then(m => ({ default: m.ResumeTemplates }))
+);
 
 interface AIDownloadRecord {
   id?: string;
@@ -41,9 +45,11 @@ interface UserDashboardProps {
   onClose: () => void;
   currentUser: { email: string; displayName: string; uid: string } | null;
   activeCvId?: string | null;
+  initialCVs?: CVRecord[];
   onSelectCV: (cvRecord: CVRecord) => void;
   onRestoreCV: (cvData: CVData, designConfig?: DesignConfig) => void;
   onCreateNew?: () => void;
+  onCVListUpdated?: (cvs: CVRecord[]) => void;
 }
 
 const fallbackDesignConfig: DesignConfig = {
@@ -63,16 +69,19 @@ export function UserDashboard({
   onClose, 
   currentUser, 
   activeCvId,
+  initialCVs = [],
   onSelectCV,
   onRestoreCV,
-  onCreateNew
+  onCreateNew,
+  onCVListUpdated
 }: UserDashboardProps) {
   const [activeTab, setActiveTab] = useState<"resumes" | "exports" | "ai">("resumes");
-  const [cvsList, setCvsList] = useState<CVRecord[]>([]);
+  const [cvsList, setCvsList] = useState<CVRecord[]>(initialCVs);
   const [downloadsCount, setDownloadsCount] = useState<number>(0);
   const [downloadsList, setDownloadsList] = useState<AIDownloadRecord[]>([]);
   const [aiGenerationsList, setAiGenerationsList] = useState<AIGenerationRecord[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(initialCVs.length === 0);
+  const [exportsLoading, setExportsLoading] = useState<boolean>(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
@@ -89,62 +98,96 @@ export function UserDashboard({
   const [previewFile, setPreviewFile] = useState<AIDownloadRecord | null>(null);
   const [previewZoom, setPreviewZoom] = useState<number>(0.6);
 
-  const fetchDashboardData = async () => {
+  // Sync initial CVs when provided by parent
+  useEffect(() => {
+    if (initialCVs && initialCVs.length > 0) {
+      setCvsList(initialCVs);
+      setLoading(false);
+    }
+  }, [initialCVs]);
+
+  // Fast targeted fetch for CVs collection
+  const loadUserCVs = async () => {
     if (!currentUser) return;
-    setLoading(true);
+    if (cvsList.length === 0) {
+      setLoading(true);
+    }
     setErrorMsg(null);
 
     try {
-      // 1. Fetch user's CVs subcollection
-      const cvs = await getUserCVs(currentUser.uid);
+      const cvs = await getUserCVs(currentUser.uid, 20);
       setCvsList(cvs);
+      if (onCVListUpdated) {
+        onCVListUpdated(cvs);
+      }
+    } catch (err: any) {
+      console.error("Dashboard CV load error:", err);
+      setErrorMsg("Could not refresh resumes list. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // 2. Fetch history and user stats in parallel
+  // Background non-blocking fetch for user stats
+  const loadUserStats = async () => {
+    if (!currentUser) return;
+    try {
       const userDocRef = doc(db, "users", currentUser.uid);
-      const historyRef = collection(db, "users", currentUser.uid, "history");
-      const q = query(historyRef, orderBy("timestamp", "desc"), limit(25));
-
-      const [userSnap, historySnap] = await Promise.all([
-        getDoc(userDocRef).catch(() => null),
-        getDocs(q).catch(() => null)
-      ]);
-
-      if (userSnap && userSnap.exists()) {
+      const userSnap = await getDoc(userDocRef);
+      if (userSnap.exists()) {
         const d = userSnap.data();
         setDownloadsCount(d.downloadsCount || 0);
         if (d.aiGenerations) {
           setAiGenerationsList(d.aiGenerations);
         }
       }
-
-      if (historySnap) {
-        const historyItems: AIDownloadRecord[] = [];
-        historySnap.forEach((docSnap) => {
-          const d = docSnap.data();
-          historyItems.push({
-            id: docSnap.id,
-            timestamp: d.timestamp || new Date().toISOString(),
-            format: d.format || "pdf",
-            fileName: d.fileName || "Resume_Export",
-            cvData: d.cvData,
-            designConfig: d.designConfig
-          });
-        });
-        setDownloadsList(historyItems);
-      }
-    } catch (err: any) {
-      console.error("Dashboard data load error:", err);
-      setErrorMsg("Could not refresh dashboard data. Please check your connection.");
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      console.warn("User stats fetch notice:", e);
     }
   };
 
+  // On-demand fetch for exports history
+  const loadExportsHistory = async () => {
+    if (!currentUser || downloadsList.length > 0) return;
+    setExportsLoading(true);
+    try {
+      const historyRef = collection(db, "users", currentUser.uid, "history");
+      const q = query(historyRef, orderBy("timestamp", "desc"), limit(25));
+      const historySnap = await getDocs(q);
+      const historyItems: AIDownloadRecord[] = [];
+      historySnap.forEach((docSnap) => {
+        const d = docSnap.data();
+        historyItems.push({
+          id: docSnap.id,
+          timestamp: d.timestamp || new Date().toISOString(),
+          format: d.format || "pdf",
+          fileName: d.fileName || "Resume_Export",
+          cvData: d.cvData,
+          designConfig: d.designConfig
+        });
+      });
+      setDownloadsList(historyItems);
+    } catch (e) {
+      console.warn("Exports history fetch notice:", e);
+    } finally {
+      setExportsLoading(false);
+    }
+  };
+
+  // Trigger fast CV loading when dashboard opens
   useEffect(() => {
     if (isOpen && currentUser) {
-      fetchDashboardData();
+      loadUserCVs();
+      loadUserStats();
     }
   }, [isOpen, currentUser]);
+
+  // Trigger exports history ONLY when user navigates to exports tab
+  useEffect(() => {
+    if (isOpen && currentUser && activeTab === "exports") {
+      loadExportsHistory();
+    }
+  }, [isOpen, currentUser, activeTab]);
 
   // Handle Delete CV
   const handleDeleteCV = async (cvId: string, e: React.MouseEvent) => {
@@ -373,10 +416,16 @@ export function UserDashboard({
                 className="bg-white text-slate-900 shadow-2xl p-8 rounded-lg min-h-[1123px] text-left transition-transform duration-200"
               >
                 {previewFile.cvData && (
-                  <ResumeTemplates 
-                    data={previewFile.cvData} 
-                    design={previewFile.designConfig || fallbackDesignConfig} 
-                  />
+                  <Suspense fallback={
+                    <div className="flex items-center justify-center p-12 text-slate-400">
+                      <Loader2Icon className="w-6 h-6 animate-spin text-indigo-500" />
+                    </div>
+                  }>
+                    <LazyResumeTemplates 
+                      data={previewFile.cvData} 
+                      design={previewFile.designConfig || fallbackDesignConfig} 
+                    />
+                  </Suspense>
                 )}
               </div>
             </div>
@@ -506,7 +555,11 @@ export function UserDashboard({
             )}
 
             <button
-              onClick={fetchDashboardData}
+              onClick={() => {
+                loadUserCVs();
+                loadUserStats();
+                if (activeTab === "exports") loadExportsHistory();
+              }}
               disabled={loading}
               className="text-slate-400 hover:text-white p-1.5 rounded-lg transition flex items-center gap-1.5 text-xs font-medium cursor-pointer"
               title="Refresh"
@@ -598,9 +651,22 @@ export function UserDashboard({
           )}
 
           {loading && cvsList.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center py-16 space-y-3">
-              <Loader2Icon className="w-8 h-8 animate-spin text-indigo-400" />
-              <p className="text-xs text-slate-400 font-medium">Loading your cloud resumes...</p>
+            <div className="space-y-3" id="cvs-skeleton-list">
+              {[1, 2, 3].map((i) => (
+                <div 
+                  key={i} 
+                  className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 animate-pulse flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-4 bg-slate-800 rounded-md w-1/3" />
+                    <div className="h-3 bg-slate-800/60 rounded-md w-1/2" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 bg-slate-800 rounded-xl w-24" />
+                    <div className="h-8 bg-slate-800/60 rounded-xl w-8" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : activeTab === "resumes" ? (
             /* Resumes Tab */
@@ -748,7 +814,25 @@ export function UserDashboard({
             )
           ) : activeTab === "exports" ? (
             /* Exports Tab */
-            downloadsList.length === 0 ? (
+            exportsLoading && downloadsList.length === 0 ? (
+              <div className="space-y-3" id="exports-skeleton-list">
+                {[1, 2, 3].map((i) => (
+                  <div 
+                    key={i} 
+                    className="p-3.5 rounded-2xl bg-slate-950/40 border border-slate-800/80 animate-pulse flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-xl bg-slate-800 shrink-0" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="h-3.5 bg-slate-800 rounded w-1/3" />
+                        <div className="h-2.5 bg-slate-800/60 rounded w-1/4" />
+                      </div>
+                    </div>
+                    <div className="h-7 bg-slate-800 rounded-xl w-24" />
+                  </div>
+                ))}
+              </div>
+            ) : downloadsList.length === 0 ? (
               <div className="text-center py-14 space-y-4">
                 <div className="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center mx-auto text-slate-600">
                   <DownloadIcon className="w-6 h-6" />
