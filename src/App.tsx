@@ -616,27 +616,39 @@ export default function App() {
           <span className="hidden sm:inline text-slate-500">Auto-saved to local draft & cloud profile</span>
         </div>
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigateTo("privacy")} 
+          <a 
+            href="/privacy"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo("privacy");
+            }} 
             className="hover:text-slate-300 transition cursor-pointer"
             id="builder_footer_privacy_btn"
           >
             Privacy Policy
-          </button>
-          <button 
-            onClick={() => navigateTo("terms")} 
+          </a>
+          <a 
+            href="/terms"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo("terms");
+            }} 
             className="hover:text-slate-300 transition cursor-pointer"
             id="builder_footer_terms_btn"
           >
             Terms of Service
-          </button>
-          <button 
-            onClick={() => navigateTo("home")} 
+          </a>
+          <a 
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo("home");
+            }} 
             className="hover:text-indigo-400 transition cursor-pointer font-medium"
             id="builder_footer_home_btn"
           >
             Home
-          </button>
+          </a>
         </div>
       </footer>
         </>

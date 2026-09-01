@@ -17,31 +17,43 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Top Header / Navigation Bar */}
       <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3.5 flex items-center justify-between">
-        <div 
-          onClick={onNavigateHome}
+        <a 
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigateHome();
+          }}
           className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition group select-none"
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-sm shadow-md group-hover:scale-105 transition-transform">
             AI
           </div>
           <span className="font-extrabold text-sm text-white tracking-tight">AI Professional CV Builder</span>
-        </div>
+        </a>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={onNavigateHome}
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigateHome();
+            }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-lg transition cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Home</span>
-          </button>
-          <button
-            onClick={onNavigateBuilder}
+          </a>
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigateBuilder();
+            }}
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-            <span>Open Builder</span>
-          </button>
+            <span>Back to Builder</span>
+          </a>
         </div>
       </header>
 
@@ -57,7 +69,7 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
             Privacy Policy
           </h1>
           <p className="text-sm text-slate-400 mt-2">
-            Last Updated: August 2026 • Effective for all users of <span className="text-indigo-400 font-mono">procvmaker.online</span>
+            Last Updated: August 2026 • Effective for all users of <span className="text-indigo-400 font-mono">www.procvmaker.online</span>
           </p>
         </div>
 
@@ -69,7 +81,7 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
               1. Our Privacy Commitment
             </h2>
             <p>
-              At <strong>AI Professional CV Builder</strong> (accessible at <a href="https://procvmaker.online" className="text-indigo-400 hover:underline">procvmaker.online</a>), we prioritize the confidentiality, privacy, and integrity of your career data. We believe your career journey belongs solely to you.
+              At <strong>AI Professional CV Builder</strong> (accessible at <a href="https://www.procvmaker.online" className="text-indigo-400 hover:underline">www.procvmaker.online</a>), we prioritize the confidentiality, privacy, and integrity of your career data. We believe your career journey belongs solely to you.
             </p>
             <p>
               This Privacy Policy explains how our website handles, processes, and protects your personal information when you build, edit, preview, and download resumes and CVs through our platform.
@@ -201,9 +213,36 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© 2026 AI Professional CV Builder. All rights reserved.</p>
           <div className="flex items-center gap-5">
-            <button onClick={onNavigateHome} className="hover:text-white transition cursor-pointer">Home</button>
-            <button onClick={onNavigateTerms} className="hover:text-white transition cursor-pointer">Terms of Service</button>
-            <button onClick={onNavigateBuilder} className="hover:text-white transition cursor-pointer text-indigo-400 font-semibold">Resume Builder</button>
+            <a 
+              href="/" 
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigateHome();
+              }} 
+              className="hover:text-white transition cursor-pointer"
+            >
+              Home
+            </a>
+            <a 
+              href="/terms" 
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigateTerms();
+              }} 
+              className="hover:text-white transition cursor-pointer"
+            >
+              Terms of Service
+            </a>
+            <a 
+              href="/" 
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigateBuilder();
+              }} 
+              className="hover:text-white transition cursor-pointer text-indigo-400 font-semibold"
+            >
+              Back to Builder
+            </a>
           </div>
         </div>
       </footer>

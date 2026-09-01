@@ -576,27 +576,39 @@ export function Homepage({
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-5 md:gap-6">
-            <button
-              onClick={onNavigatePrivacy}
+            <a
+              href="/privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigatePrivacy?.();
+              }}
               className="text-slate-400 hover:text-slate-200 transition cursor-pointer text-xs"
               id="footer_privacy_link"
             >
               Privacy Policy
-            </button>
-            <button
-              onClick={onNavigateTerms}
+            </a>
+            <a
+              href="/terms"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigateTerms?.();
+              }}
               className="text-slate-400 hover:text-slate-200 transition cursor-pointer text-xs"
               id="footer_terms_link"
             >
               Terms of Service
-            </button>
-            <button
-              onClick={() => onStartBuilding()}
+            </a>
+            <a
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                onStartBuilding();
+              }}
               className="text-indigo-400 hover:text-indigo-300 font-semibold transition cursor-pointer text-xs"
               id="footer_builder_link"
             >
               Resume Builder
-            </button>
+            </a>
             
             <a 
               href="mailto:asadkhr39@gmail.com?subject=Inquiry regarding AI Professional CV Builder"

@@ -154,8 +154,10 @@ export function UserDropdown({
           {(onNavigatePrivacy || onNavigateTerms) && (
             <div className="py-1.5 space-y-0.5">
               {onNavigatePrivacy && (
-                <button
-                  onClick={() => {
+                <a
+                  href="/privacy"
+                  onClick={(e) => {
+                    e.preventDefault();
                     setIsOpen(false);
                     onNavigatePrivacy();
                   }}
@@ -164,11 +166,13 @@ export function UserDropdown({
                 >
                   <Shield className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <span>Privacy Policy</span>
-                </button>
+                </a>
               )}
               {onNavigateTerms && (
-                <button
-                  onClick={() => {
+                <a
+                  href="/terms"
+                  onClick={(e) => {
+                    e.preventDefault();
                     setIsOpen(false);
                     onNavigateTerms();
                   }}
@@ -177,7 +181,7 @@ export function UserDropdown({
                 >
                   <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <span>Terms of Service</span>
-                </button>
+                </a>
               )}
             </div>
           )}
