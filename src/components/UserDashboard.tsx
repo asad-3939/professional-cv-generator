@@ -5,7 +5,8 @@ import {
   RefreshCw as RefreshCwIcon, Layers as LayersIcon, Check as CheckIcon, Eye as EyeIcon, 
   LayoutDashboard as LayoutDashboardIcon, Cloud as CloudIcon, ArrowRight as ArrowRightIcon, 
   Trash2 as Trash2Icon, FileImage as FileImageIcon, Plus as PlusIcon, Copy as CopyIcon,
-  Edit2 as Edit2Icon, CheckCircle2 as CheckCircle2Icon, ShieldCheck as ShieldCheckIcon
+  Edit2 as Edit2Icon, CheckCircle2 as CheckCircle2Icon, ShieldCheck as ShieldCheckIcon,
+  Target as TargetIcon
 } from "lucide-react";
 import { CVData, DesignConfig, CVRecord, TemplateId } from "../types";
 import { 
@@ -51,6 +52,7 @@ interface UserDashboardProps {
   onCreateNew?: () => void;
   onCVListUpdated?: (cvs: CVRecord[]) => void;
   onCheckATS?: (cvRecord: CVRecord) => void;
+  onMatchJob?: (cvRecord: CVRecord) => void;
 }
 
 const fallbackDesignConfig: DesignConfig = {
@@ -75,7 +77,8 @@ export function UserDashboard({
   onRestoreCV,
   onCreateNew,
   onCVListUpdated,
-  onCheckATS
+  onCheckATS,
+  onMatchJob
 }: UserDashboardProps) {
   const [activeTab, setActiveTab] = useState<"resumes" | "exports" | "ai">("resumes");
   const [cvsList, setCvsList] = useState<CVRecord[]>(initialCVs);
@@ -802,6 +805,20 @@ export function UserDashboard({
                               >
                                 <ShieldCheckIcon className="w-3.5 h-3.5 text-teal-400" />
                                 <span className="hidden md:inline">Check ATS</span>
+                              </button>
+                            )}
+
+                            {onMatchJob && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMatchJob(cv);
+                                }}
+                                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-850 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                                title="Compare this resume against a target job description"
+                              >
+                                <TargetIcon className="w-3.5 h-3.5 text-teal-400" />
+                                <span className="hidden md:inline">Match Job</span>
                               </button>
                             )}
 

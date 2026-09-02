@@ -143,3 +143,74 @@ export interface ATSAnalysisResult {
   analyzedAt: string;
 }
 
+// ==========================================
+// Job Match Types (Strictly separate from ATS)
+// ==========================================
+
+export type KeywordPriority = "required" | "preferred" | "general";
+
+export interface SkillMatchItem {
+  name: string;
+  status: "matched" | "partial" | "missing";
+  matchType?: "exact" | "semantic" | "none";
+  category?: string; // e.g., "Frontend", "Cloud", "Methodology"
+  foundLocation?: string; // e.g., "Skills list", "Experience: Senior Engineer"
+}
+
+export interface KeywordMatchItem {
+  keyword: string;
+  priority: KeywordPriority;
+  status: "present" | "missing";
+  frequencyInJob: number;
+  frequencyInCV: number;
+  contextSnippet?: string;
+}
+
+export interface JobGapItem {
+  id: string;
+  jobRequirement: string; // What the job requires
+  cvStatus: string; // What the CV currently shows
+  recommendation: string; // How the user can improve (with anti-hallucination guardrail)
+  severity: "high" | "medium" | "low";
+}
+
+export interface JobStrengthItem {
+  id: string;
+  title: string;
+  description: string;
+  evidence: string;
+}
+
+export interface JobContentImprovement {
+  id: string;
+  section: string;
+  itemId?: string;
+  bulletIndex?: number;
+  originalText: string;
+  suggestedText: string;
+  explanation: string;
+}
+
+export interface JobMatchCategoryScores {
+  skillsMatch: number; // Weight: 30%
+  experienceAlignment: number; // Weight: 25%
+  keywordCoverage: number; // Weight: 20%
+  roleRelevance: number; // Weight: 15%
+  educationAlignment: number; // Weight: 10%
+}
+
+export interface JobMatchResult {
+  overallScore: number; // 0 - 100 (Computed deterministically from weighted categories)
+  matchRating: "High Match" | "Strong Match" | "Moderate Match" | "Low Match";
+  jobTitle?: string;
+  categoryScores: JobMatchCategoryScores;
+  matchingSkills: SkillMatchItem[];
+  missingSkills: SkillMatchItem[];
+  keywords: KeywordMatchItem[];
+  strengths: JobStrengthItem[];
+  gaps: JobGapItem[];
+  contentImprovements: JobContentImprovement[];
+  analyzedAt: string;
+  jobDescriptionHash?: string;
+}
+

@@ -685,7 +685,205 @@ For each finding, provide:
   }
 });
 
+// 6. Run Semantic Job Description to CV Match with Gemini
+app.post("/api/cv/job-match", async (req, res) => {
+  try {
+    const { cvData, jobDescription } = req.body;
+    if (!cvData || !jobDescription || !jobDescription.trim()) {
+      res.status(400).json({ error: "Both CV data and Job Description text are required for Job Match." });
+      return;
+    }
+
+    // Sanitize input to only include relevant CV fields (no user IDs or auth metadata)
+    const sanitizedCV = {
+      personal: {
+        fullName: cvData.personal?.fullName || "",
+        jobTitle: cvData.personal?.jobTitle || "",
+        location: cvData.personal?.location || ""
+      },
+      summary: cvData.summary || "",
+      experience: (cvData.experience || []).map((exp: any) => ({
+        id: exp.id,
+        company: exp.company || "",
+        position: exp.position || "",
+        location: exp.location || "",
+        startDate: exp.startDate || "",
+        endDate: exp.endDate || "",
+        current: Boolean(exp.current),
+        description: exp.description || ""
+      })),
+      education: (cvData.education || []).map((edu: any) => ({
+        id: edu.id,
+        school: edu.school || "",
+        degree: edu.degree || "",
+        field: edu.field || "",
+        startDate: edu.startDate || "",
+        endDate: edu.endDate || "",
+        notes: edu.notes || ""
+      })),
+      skills: Array.isArray(cvData.skills) ? cvData.skills : [],
+      projects: (cvData.projects || []).map((pr: any) => ({
+        id: pr.id,
+        name: pr.name || "",
+        technologies: pr.technologies || "",
+        description: pr.description || ""
+      })),
+      certifications: (cvData.certifications || []).map((c: any) => ({
+        id: c.id,
+        name: c.name || "",
+        issuer: c.issuer || ""
+      })),
+      languages: (cvData.languages || []).map((l: any) => ({
+        id: l.id,
+        name: l.name || "",
+        proficiency: l.proficiency || ""
+      }))
+    };
+
+    const ai = getGeminiClient();
+    const prompt = `You are a senior technical recruiter and talent matching expert performing a precise semantic comparison between a candidate's CV and a target Job Description.
+
+CRITICAL ANTI-HALLUCINATION & INTEGRITY RULES:
+1. You must NEVER invent, assume, or fabricate any candidate information:
+   - Do NOT invent metrics, numbers, percentages, or achievements.
+   - Do NOT invent skills, tools, languages, frameworks, or certifications not in the CV.
+   - Do NOT invent companies, job titles, degrees, or years of experience.
+2. If the Job requires a skill, tool, or qualification that is NOT present in the candidate's CV, you MUST classify it as "missing" (Missing from CV).
+3. In gap recommendations, ALWAYS advise: "If you genuinely have [Skill/Experience], highlight it in [Section]. If not, do not add it."
+4. In "contentImprovements", ONLY suggest rewrites for sentences/bullets ALREADY written in the CV to better align with the job's terminology while preserving 100% of the candidate's authentic facts.
+
+Target Job Description:
+"""
+${jobDescription.trim()}
+"""
+
+Candidate CV:
+${JSON.stringify(sanitizedCV, null, 2)}
+
+Evaluate the following:
+1. Detected Target Job Title from the JD.
+2. Semantic match scores (0-100) for:
+   - skillsMatchScore: Semantic & exact skill match.
+   - experienceAlignmentScore: Seniority, domain experience, and role depth match.
+   - keywordCoverageScore: Contextual coverage of key industry terms.
+   - roleRelevanceScore: Overall career profile fit for this vacancy.
+   - educationAlignmentScore: Education and certification alignment.
+3. semanticMatchingSkills: Skills present in the CV that semantically satisfy JD requirements.
+4. missingImportantSkills: Crucial skills or tools explicitly required by JD that are absent from CV.
+5. strengths: 2-4 areas where candidate's real experience directly matches key requirements.
+6. gaps: Concrete gaps where candidate does not demonstrate a stated job requirement.
+7. contentImprovements: 1-3 targeted active-voice rewrites for existing CV bullets or summary that sharpen alignment with this specific role without adding fabricated facts.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            detectedJobTitle: { type: Type.STRING, description: "Job title extracted from the Job Description" },
+            skillsMatchScore: { type: Type.INTEGER, description: "0-100 semantic skills match score" },
+            experienceAlignmentScore: { type: Type.INTEGER, description: "0-100 experience relevance score" },
+            keywordCoverageScore: { type: Type.INTEGER, description: "0-100 keyword coverage score" },
+            roleRelevanceScore: { type: Type.INTEGER, description: "0-100 role relevance score" },
+            educationAlignmentScore: { type: Type.INTEGER, description: "0-100 education alignment score" },
+            semanticMatchingSkills: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  foundLocation: { type: Type.STRING, description: "Where in CV this skill is evidenced" }
+                },
+                required: ["name"]
+              }
+            },
+            missingImportantSkills: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING }
+                },
+                required: ["name"]
+              }
+            },
+            strengths: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  evidence: { type: Type.STRING }
+                },
+                required: ["title", "description", "evidence"]
+              }
+            },
+            gaps: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  jobRequirement: { type: Type.STRING },
+                  cvStatus: { type: Type.STRING },
+                  recommendation: { type: Type.STRING },
+                  severity: { type: Type.STRING, enum: ["high", "medium", "low"] }
+                },
+                required: ["jobRequirement", "cvStatus", "recommendation", "severity"]
+              }
+            },
+            contentImprovements: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  section: { type: Type.STRING },
+                  itemId: { type: Type.STRING },
+                  bulletIndex: { type: Type.INTEGER },
+                  originalText: { type: Type.STRING },
+                  suggestedText: { type: Type.STRING },
+                  explanation: { type: Type.STRING }
+                },
+                required: ["section", "originalText", "suggestedText", "explanation"]
+              }
+            }
+          },
+          required: [
+            "skillsMatchScore",
+            "experienceAlignmentScore",
+            "keywordCoverageScore",
+            "roleRelevanceScore",
+            "educationAlignmentScore",
+            "strengths",
+            "gaps"
+          ]
+        }
+      }
+    });
+
+    let resultText = response.text || "{}";
+    if (resultText.includes("```")) {
+      resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
+    }
+    resultText = resultText.trim();
+
+    try {
+      const parsedMatch = JSON.parse(resultText);
+      res.status(200).json(parsedMatch);
+    } catch (parseError) {
+      console.error("Failed to parse Job Match JSON response:", resultText, parseError);
+      res.status(500).json({ error: "Failed to assemble structured Job Match analysis from AI output." });
+    }
+  } catch (error: any) {
+    console.error("Error in /api/cv/job-match:", error);
+    res.status(500).json({ error: error.message || "Failed to run Job Match analysis." });
+  }
+});
+
 // Legacy ATS endpoint proxy for backwards compatibility
+
 app.post("/api/cv/ats", async (req, res) => {
   try {
     const { cvData, jobDescription } = req.body;

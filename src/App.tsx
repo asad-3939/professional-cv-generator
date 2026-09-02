@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { 
   FileDown, RotateCcw, Printer, Sparkles, AlertCircle, CheckCircle2, Eye, FileImage,
-  Edit3, LogIn, LayoutDashboard, Cloud, Check, Loader2, RefreshCw, Layers, ShieldCheck
+  Edit3, LogIn, LayoutDashboard, Cloud, Check, Loader2, RefreshCw, Layers, ShieldCheck,
+  Target
 } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./lib/firebase";
@@ -33,6 +34,11 @@ import { AccountSettingsModal } from "./components/AccountSettingsModal";
 // Lazy-load Advanced ATS Analyzer to keep initial bundle ultra-lean
 const LazyATSAnalyzerModal = lazy(() => 
   import("./components/ATSAnalyzerModal").then(m => ({ default: m.ATSAnalyzerModal }))
+);
+
+// Lazy-load Job Description Match Modal
+const LazyJobMatchModal = lazy(() => 
+  import("./components/JobMatchModal").then(m => ({ default: m.JobMatchModal }))
 );
 
 export type AppRoute = "home" | "builder" | "privacy" | "terms";
@@ -134,6 +140,9 @@ export default function App() {
   const [isATSModalOpen, setIsATSModalOpen] = useState<boolean>(false);
   const [targetATSCV, setTargetATSCV] = useState<{ cvData: CVData; designConfig: DesignConfig; title: string } | null>(null);
 
+  const [isJobMatchOpen, setIsJobMatchOpen] = useState<boolean>(false);
+  const [targetJobMatchCV, setTargetJobMatchCV] = useState<{ cvData: CVData; title: string } | null>(null);
+
   const handleOpenATS = (customCV?: { cvData: CVData; designConfig: DesignConfig; title: string }) => {
     if (customCV) {
       setTargetATSCV(customCV);
@@ -145,6 +154,18 @@ export default function App() {
       });
     }
     setIsATSModalOpen(true);
+  };
+
+  const handleOpenJobMatch = (customCV?: { cvData: CVData; title: string }) => {
+    if (customCV) {
+      setTargetJobMatchCV(customCV);
+    } else {
+      setTargetJobMatchCV({
+        cvData,
+        title: activeCvTitle || "My Resume"
+      });
+    }
+    setIsJobMatchOpen(true);
   };
 
   const debounceTimerRef = useRef<any>(null);
@@ -520,6 +541,18 @@ export default function App() {
                 <span className="inline sm:hidden">ATS</span>
               </button>
 
+              {/* Job Description Match Trigger */}
+              <button
+                onClick={() => handleOpenJobMatch()}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
+                title="Match CV against a target job description"
+                id="header_match_job_btn"
+              >
+                <Target className="w-3.5 h-3.5 text-teal-400" />
+                <span className="hidden sm:inline">Match Job</span>
+                <span className="inline sm:hidden">Match</span>
+              </button>
+
               {/* Import Resume Button */}
               <button
                 onClick={() => setIsAIAssistantOpen(true)}
@@ -666,6 +699,7 @@ export default function App() {
                 activeTab={formActiveTab}
                 onActiveTabChange={setFormActiveTab}
                 onCheckATS={() => handleOpenATS()}
+                onMatchJob={() => handleOpenJobMatch()}
               />
             </div>
 
@@ -831,6 +865,12 @@ export default function App() {
             title: cvRecord.title
           });
         }}
+        onMatchJob={(cvRecord) => {
+          handleOpenJobMatch({
+            cvData: cvRecord.data,
+            title: cvRecord.title
+          });
+        }}
       />
 
       {/* AI Assistant Modal */}
@@ -855,12 +895,38 @@ export default function App() {
             cvData={targetATSCV.cvData}
             designConfig={targetATSCV.designConfig}
             cvTitle={targetATSCV.title}
+            onOpenJobMatch={() => {
+              const cv = targetATSCV;
+              handleOpenJobMatch({
+                cvData: cv.cvData,
+                title: cv.title
+              });
+            }}
             onUpdateCVData={(updated) => {
               if (targetATSCV.title === (activeCvTitle || "My Resume")) {
                 setCvData(updated);
               }
               setTargetATSCV(prev => prev ? { ...prev, cvData: updated } : null);
               setSuccessToast("Applied AI improvement to CV!");
+            }}
+          />
+        )}
+      </Suspense>
+
+      {/* Job Description -> CV Match Modal (Lazy Loaded) */}
+      <Suspense fallback={null}>
+        {isJobMatchOpen && targetJobMatchCV && (
+          <LazyJobMatchModal
+            isOpen={isJobMatchOpen}
+            onClose={() => setIsJobMatchOpen(false)}
+            cvData={targetJobMatchCV.cvData}
+            cvTitle={targetJobMatchCV.title}
+            onUpdateCVData={(updated) => {
+              if (targetJobMatchCV.title === (activeCvTitle || "My Resume")) {
+                setCvData(updated);
+              }
+              setTargetJobMatchCV(prev => prev ? { ...prev, cvData: updated } : null);
+              setSuccessToast("Applied tailored recommendation to resume!");
             }}
           />
         )}

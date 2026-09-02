@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { 
   X, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, 
   RotateCw, Check, ArrowRight, ShieldCheck, FileCheck, 
-  BarChart3, Award, Info, ChevronDown, ChevronUp, Layers, Wand2
+  BarChart3, Award, Info, ChevronDown, ChevronUp, Layers, Wand2,
+  Target
 } from "lucide-react";
 import { CVData, DesignConfig, ATSAnalysisResult, ATSIssue, ATSCategoryScores } from "../types";
 import { runRuleBasedATSChecks, synthesizeATSAnalysis } from "../utils/atsEngine";
@@ -14,6 +15,7 @@ interface ATSAnalyzerModalProps {
   designConfig?: DesignConfig;
   cvTitle?: string;
   onUpdateCVData?: (newData: CVData) => void;
+  onOpenJobMatch?: () => void;
 }
 
 export const ATSAnalyzerModal: React.FC<ATSAnalyzerModalProps> = ({
@@ -22,7 +24,8 @@ export const ATSAnalyzerModal: React.FC<ATSAnalyzerModalProps> = ({
   cvData,
   designConfig,
   cvTitle = "Current Resume",
-  onUpdateCVData
+  onUpdateCVData,
+  onOpenJobMatch
 }) => {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisResult, setAnalysisResult] = useState<ATSAnalysisResult | null>(null);
@@ -301,6 +304,40 @@ export const ATSAnalyzerModal: React.FC<ATSAnalyzerModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Job Match Callout Banner */}
+              {onOpenJobMatch && (
+                <div className="p-4 bg-gradient-to-r from-teal-950/40 via-slate-900 to-indigo-950/30 border border-teal-800/40 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 shrink-0">
+                      <Target className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                        <span>Targeting a Specific Vacancy?</span>
+                        <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-teal-950 border border-teal-800 text-teal-300">
+                          Job Match
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Compare this CV directly against a pasted job posting to evaluate exact skill alignment and missing requirements.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenJobMatch();
+                    }}
+                    className="px-3.5 py-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm"
+                    id="ats_modal_open_job_match_btn"
+                  >
+                    <span>Match Job Vacancy</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-950" />
+                  </button>
+                </div>
+              )}
 
               {/* Category Breakdown Progress Grid */}
               <div className="space-y-3">
