@@ -1,7 +1,7 @@
 {
-  "name": "AI Professional CV Builder",
-  "short_name": "AI CV Builder",
-  "description": "A modern, professional resume and CV generator with customizable templates, real-time preview, and high-quality PDF exports.",
+  "name": "ProCVMaker - AI CV Builder & ATS Resume Checker",
+  "short_name": "ProCVMaker",
+  "description": "Free AI CV Builder & ATS Resume Checker with professional templates, job description match analysis, and high-resolution PDF exports.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

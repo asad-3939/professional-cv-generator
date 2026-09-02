@@ -98,9 +98,9 @@ export function Homepage({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-white tracking-tight">AI Professional CV Builder</span>
+              <span className="text-base font-bold text-white tracking-tight">ProCVMaker</span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Automatic PDF formatter and resume writer</p>
+            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">AI CV Builder &amp; ATS Resume Checker</p>
           </div>
         </div>
 
@@ -165,7 +165,7 @@ export function Homepage({
           transition={{ duration: 0.4, delay: 0.1 }}
           className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-[1.15] max-w-3xl"
         >
-          Build a Job-Winning Resume in Minutes
+          Free AI CV Builder &amp; ATS Resume Checker
         </motion.h1>
 
         {/* Subtitle Value Proposition */}
@@ -175,7 +175,7 @@ export function Homepage({
           transition={{ duration: 0.4, delay: 0.15 }}
           className="text-slate-400 text-sm md:text-base mt-5 max-w-2xl leading-relaxed"
         >
-          Clean, recruiter-approved CV templates designed to pass automated hiring systems. Customize sections, preview live changes, and export print-ready PDFs without watermarks.
+          Create ATS-friendly, recruiter-approved resumes in minutes. Check your ATS score, match against job descriptions, get tailored AI improvements, and download free high-resolution PDFs.
         </motion.p>
 
         {/* Primary Call-to-Actions */}
@@ -328,7 +328,7 @@ export function Homepage({
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-bold text-indigo-400 tracking-wider uppercase">Simple 3-Step Process</span>
             <h2 className="text-2xl md:text-3xl font-extrabold text-white mt-1.5 tracking-tight">
-              How to Build Your CV with ProCV
+              How to Build Your CV with ProCVMaker
             </h2>
             <p className="text-xs md:text-sm text-slate-400 mt-2">
               From choosing a template to exporting a polished PDF in under 5 minutes.
@@ -570,8 +570,8 @@ export function Homepage({
               AI
             </div>
             <div className="text-left">
-              <p className="font-bold text-slate-200">AI Professional CV Builder</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">Build a high-performance career narrative instantly.</p>
+              <p className="font-bold text-slate-200">ProCVMaker</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">AI CV Builder &amp; ATS Resume Checker</p>
             </div>
           </div>
 
@@ -611,7 +611,7 @@ export function Homepage({
             </a>
             
             <a 
-              href="mailto:asadkhr39@gmail.com?subject=Inquiry regarding AI Professional CV Builder"
+              href="mailto:asadkhr39@gmail.com?subject=Inquiry regarding ProCVMaker"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 rounded-lg transition cursor-pointer select-none font-semibold text-xs ml-2"
               id="homepage_contact_link"
             >
@@ -621,7 +621,7 @@ export function Homepage({
           </div>
         </div>
         <div className="max-w-6xl mx-auto mt-6 pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500">
-          <p>© 2026 AI Professional CV Builder. All rights reserved.</p>
+          <p>© 2026 ProCVMaker. All rights reserved.</p>
         </div>
       </footer>
 

@@ -1,6 +1,6 @@
 {
-  "name": "AI Professional CV Builder",
-  "description": "Build ATS-friendly, professional resumes in minutes with AI Professional CV Builder. Choose modern templates, optimize keywords, and download free PDFs.",
+  "name": "ProCVMaker",
+  "description": "Free AI CV Builder & ATS Resume Checker. Create ATS-friendly resumes, analyze job description matches, get instant AI improvements, and download high-resolution PDFs with ProCVMaker.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

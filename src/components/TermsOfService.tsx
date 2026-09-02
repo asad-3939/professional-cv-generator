@@ -10,7 +10,7 @@ interface TermsOfServiceProps {
 export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBuilder }: TermsOfServiceProps) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-    document.title = "Terms of Service | AI Professional CV Builder";
+    document.title = "Terms of Service | ProCVMaker";
   }, []);
 
   return (
@@ -28,7 +28,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-sm shadow-md group-hover:scale-105 transition-transform">
             AI
           </div>
-          <span className="font-extrabold text-sm text-white tracking-tight">AI Professional CV Builder</span>
+          <span className="font-extrabold text-sm text-white tracking-tight">ProCVMaker</span>
         </a>
 
         <div className="flex items-center gap-3">
@@ -82,7 +82,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
               1. Acceptance of Terms
             </h2>
             <p>
-              By accessing, browsing, or using <strong>AI Professional CV Builder</strong> (located at <a href="https://www.procvmaker.online" className="text-indigo-400 hover:underline">www.procvmaker.online</a>), you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
+              By accessing, browsing, or using <strong>ProCVMaker</strong> (located at <a href="https://www.procvmaker.online" className="text-indigo-400 hover:underline">www.procvmaker.online</a>), you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
             </p>
             <p>
               If you do not agree with any part of these terms, you must discontinue the use of our services immediately.
@@ -96,7 +96,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
               2. Description of Service
             </h2>
             <p>
-              AI Professional CV Builder offers a dynamic, web-based tool suite allowing users to create, format, organize, preview, and download professional resumes and CV documents in PDF and PNG formats. The service includes optional AI-assisted writing tools, ATS-friendly templates, layout customization, and user account synchronization.
+              ProCVMaker offers a dynamic, web-based tool suite allowing users to create, format, organize, preview, and download professional resumes and CV documents in PDF and PNG formats. The service includes optional AI-assisted writing tools, ATS-friendly templates, layout customization, and user account synchronization.
             </p>
           </section>
 
@@ -165,7 +165,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
               6. "As-Is" Service Availability & Disclaimer of Warranties
             </h2>
             <p className="text-xs text-slate-300 leading-relaxed">
-              AI Professional CV Builder is provided on an <strong>"AS IS"</strong> and <strong>"AS AVAILABLE"</strong> basis without warranties of any kind, whether express, implied, statutory, or otherwise. We make no warranty that:
+              ProCVMaker is provided on an <strong>"AS IS"</strong> and <strong>"AS AVAILABLE"</strong> basis without warranties of any kind, whether express, implied, statutory, or otherwise. We make no warranty that:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-400 text-xs">
               <li>The service will meet your specific employment requirements or guarantee interviews or job offers.</li>
@@ -178,7 +178,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
           <section className="space-y-4">
             <h2 className="text-lg font-bold text-white">7. Limitation of Liability</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              To the fullest extent permitted by applicable law, in no event shall AI Professional CV Builder, its developers, or affiliates be liable for any indirect, incidental, special, consequential, or punitive damages (including loss of employment opportunities, loss of profits, or data loss) arising out of or in connection with your use of the service.
+              To the fullest extent permitted by applicable law, in no event shall ProCVMaker, its developers, or affiliates be liable for any indirect, incidental, special, consequential, or punitive damages (including loss of employment opportunities, loss of profits, or data loss) arising out of or in connection with your use of the service.
             </p>
           </section>
 
@@ -201,7 +201,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
             </p>
             <div className="pt-2">
               <a 
-                href="mailto:asadkhr39@gmail.com?subject=Terms Inquiry - AI Professional CV Builder"
+                href="mailto:asadkhr39@gmail.com?subject=Terms Inquiry - ProCVMaker"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition"
               >
                 <Mail className="w-3.5 h-3.5" />
@@ -215,7 +215,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
       {/* Footer Navigation */}
       <footer className="border-t border-slate-850 bg-slate-950 px-4 md:px-8 py-8 text-xs text-slate-400">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 AI Professional CV Builder. All rights reserved.</p>
+          <p>© 2026 ProCVMaker. All rights reserved.</p>
           <div className="flex items-center gap-5">
             <a 
               href="/" 

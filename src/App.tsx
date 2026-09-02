@@ -63,9 +63,9 @@ export default function App() {
       window.history.pushState({}, "", targetPath);
     }
     if (route === "home") {
-      document.title = "AI Professional CV Builder";
+      document.title = "Free AI CV Builder & ATS Resume Checker | ProCVMaker";
     } else if (route === "builder") {
-      document.title = "CV Builder Workspace | AI Professional CV Builder";
+      document.title = "CV Builder Workspace | ProCVMaker";
     }
   };
 
@@ -462,7 +462,7 @@ export default function App() {
                   <h1 className="text-xs sm:text-sm font-extrabold text-white tracking-tight leading-none">
                     ProCVMaker
                   </h1>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">ATS Resume Builder</p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">AI CV Builder & ATS Resume Checker</p>
                 </div>
               </div>
 

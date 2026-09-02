@@ -10,7 +10,7 @@ interface PrivacyPolicyProps {
 export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuilder }: PrivacyPolicyProps) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-    document.title = "Privacy Policy | AI Professional CV Builder";
+    document.title = "Privacy Policy | ProCVMaker";
   }, []);
 
   return (
@@ -28,7 +28,7 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-sm shadow-md group-hover:scale-105 transition-transform">
             AI
           </div>
-          <span className="font-extrabold text-sm text-white tracking-tight">AI Professional CV Builder</span>
+          <span className="font-extrabold text-sm text-white tracking-tight">ProCVMaker</span>
         </a>
 
         <div className="flex items-center gap-3">
@@ -81,7 +81,7 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
               1. Our Privacy Commitment
             </h2>
             <p>
-              At <strong>AI Professional CV Builder</strong> (accessible at <a href="https://www.procvmaker.online" className="text-indigo-400 hover:underline">www.procvmaker.online</a>), we prioritize the confidentiality, privacy, and integrity of your career data. We believe your career journey belongs solely to you.
+              At <strong>ProCVMaker</strong> (accessible at <a href="https://www.procvmaker.online" className="text-indigo-400 hover:underline">www.procvmaker.online</a>), we prioritize the confidentiality, privacy, and integrity of your career data. We believe your career journey belongs solely to you.
             </p>
             <p>
               This Privacy Policy explains how our website handles, processes, and protects your personal information when you build, edit, preview, and download resumes and CVs through our platform.
@@ -197,7 +197,7 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
             </p>
             <div className="pt-2">
               <a 
-                href="mailto:asadkhr39@gmail.com?subject=Privacy Inquiry - AI Professional CV Builder"
+                href="mailto:asadkhr39@gmail.com?subject=Privacy Inquiry - ProCVMaker"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition"
               >
                 <Mail className="w-3.5 h-3.5" />
@@ -211,7 +211,7 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
       {/* Footer Navigation */}
       <footer className="border-t border-slate-850 bg-slate-950 px-4 md:px-8 py-8 text-xs text-slate-400">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 AI Professional CV Builder. All rights reserved.</p>
+          <p>© 2026 ProCVMaker. All rights reserved.</p>
           <div className="flex items-center gap-5">
             <a 
               href="/" 
