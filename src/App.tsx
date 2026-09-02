@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { 
   FileDown, RotateCcw, Printer, Sparkles, AlertCircle, CheckCircle2, Eye, FileImage,
-  Edit3, LogIn, LayoutDashboard, Cloud, Check, Loader2, RefreshCw, Layers
+  Edit3, LogIn, LayoutDashboard, Cloud, Check, Loader2, RefreshCw, Layers, ShieldCheck
 } from "lucide-react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./lib/firebase";
@@ -29,6 +29,11 @@ import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { TermsOfService } from "./components/TermsOfService";
 import { UserDropdown } from "./components/UserDropdown";
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
+
+// Lazy-load Advanced ATS Analyzer to keep initial bundle ultra-lean
+const LazyATSAnalyzerModal = lazy(() => 
+  import("./components/ATSAnalyzerModal").then(m => ({ default: m.ATSAnalyzerModal }))
+);
 
 export type AppRoute = "home" | "builder" | "privacy" | "terms";
 
@@ -126,6 +131,21 @@ export default function App() {
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState<boolean>(false);
+  const [isATSModalOpen, setIsATSModalOpen] = useState<boolean>(false);
+  const [targetATSCV, setTargetATSCV] = useState<{ cvData: CVData; designConfig: DesignConfig; title: string } | null>(null);
+
+  const handleOpenATS = (customCV?: { cvData: CVData; designConfig: DesignConfig; title: string }) => {
+    if (customCV) {
+      setTargetATSCV(customCV);
+    } else {
+      setTargetATSCV({
+        cvData,
+        designConfig,
+        title: activeCvTitle || "My Resume"
+      });
+    }
+    setIsATSModalOpen(true);
+  };
 
   const debounceTimerRef = useRef<any>(null);
   const isInitialLoadRef = useRef<boolean>(true);
@@ -167,17 +187,22 @@ export default function App() {
             }
           } else {
             // New user without CVs: initialize with current draft in editor
-            const initialTitle = cvData.personal.jobTitle?.trim() || "Professional Resume";
-            const created = await createCV(user.uid, cvData, designConfig, initialTitle, true);
-            setActiveCvId(created.id);
-            setActiveCvTitle(created.title);
-            setCachedUserCVs([created]);
-            setAutosaveStatus("saved");
-            setSuccessToast(`Created your first cloud resume "${created.title}"!`);
+            try {
+              const initialTitle = cvData.personal?.jobTitle?.trim() || "Professional Resume";
+              const created = await createCV(user.uid, cvData, designConfig, initialTitle, true);
+              setActiveCvId(created.id);
+              setActiveCvTitle(created.title);
+              setCachedUserCVs([created]);
+              setAutosaveStatus("saved");
+              setSuccessToast(`Created your first cloud resume "${created.title}"!`);
+            } catch (createErr) {
+              console.warn("Notice: Initial cloud CV initialization deferred:", createErr);
+              setAutosaveStatus("local");
+            }
           }
         } catch (err) {
-          console.error("Failed to load user CVs from Firestore:", err);
-          setAutosaveStatus("error");
+          console.warn("Notice: Loading user CVs from Firestore fallback to local:", err);
+          setAutosaveStatus("local");
         }
       } else {
         setCurrentUser(null);
@@ -483,6 +508,18 @@ export default function App() {
                 </button>
               )}
 
+              {/* Advanced ATS Analyzer Trigger */}
+              <button
+                onClick={() => handleOpenATS()}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
+                title="Analyze ATS compatibility and content score"
+                id="header_check_ats_btn"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                <span className="hidden sm:inline">Check ATS</span>
+                <span className="inline sm:hidden">ATS</span>
+              </button>
+
               {/* Import Resume Button */}
               <button
                 onClick={() => setIsAIAssistantOpen(true)}
@@ -628,6 +665,7 @@ export default function App() {
                 currentUser={currentUser}
                 activeTab={formActiveTab}
                 onActiveTabChange={setFormActiveTab}
+                onCheckATS={() => handleOpenATS()}
               />
             </div>
 
@@ -786,6 +824,13 @@ export default function App() {
           navigateTo("builder");
           setSuccessToast("Restored CV snapshot into editor!");
         }}
+        onCheckATS={(cvRecord) => {
+          handleOpenATS({
+            cvData: cvRecord.data,
+            designConfig: cvRecord.design,
+            title: cvRecord.title
+          });
+        }}
       />
 
       {/* AI Assistant Modal */}
@@ -800,6 +845,26 @@ export default function App() {
           setSuccessToast("Resume imported and populated successfully!");
         }}
       />
+
+      {/* Advanced ATS Compatibility Analyzer Modal (Lazy Loaded) */}
+      <Suspense fallback={null}>
+        {isATSModalOpen && targetATSCV && (
+          <LazyATSAnalyzerModal
+            isOpen={isATSModalOpen}
+            onClose={() => setIsATSModalOpen(false)}
+            cvData={targetATSCV.cvData}
+            designConfig={targetATSCV.designConfig}
+            cvTitle={targetATSCV.title}
+            onUpdateCVData={(updated) => {
+              if (targetATSCV.title === (activeCvTitle || "My Resume")) {
+                setCvData(updated);
+              }
+              setTargetATSCV(prev => prev ? { ...prev, cvData: updated } : null);
+              setSuccessToast("Applied AI improvement to CV!");
+            }}
+          />
+        )}
+      </Suspense>
 
     </div>
   );

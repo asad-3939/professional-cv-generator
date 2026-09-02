@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { 
   User, Briefcase, GraduationCap, Code, FileText, Award, 
   Languages, Plus, Trash2, Palette, Sparkles, SlidersHorizontal, Loader2, Check,
-  ExternalLink, Layers, ChevronRight
+  ExternalLink, Layers, ChevronRight, ShieldCheck
 } from "lucide-react";
 import { CVData, DesignConfig, WorkExperience, Education, Project, Certification, Language, TemplateId } from "../types";
 import { doc, setDoc, arrayUnion } from "firebase/firestore";
@@ -16,6 +16,7 @@ interface CVFormProps {
   currentUser: { email: string; displayName: string; uid: string } | null;
   activeTab?: string;
   onActiveTabChange?: (tab: string) => void;
+  onCheckATS?: () => void;
 }
 
 export const CVForm: React.FC<CVFormProps> = ({ 
@@ -25,7 +26,8 @@ export const CVForm: React.FC<CVFormProps> = ({
   onDesignChange, 
   currentUser,
   activeTab: controlledActiveTab,
-  onActiveTabChange
+  onActiveTabChange,
+  onCheckATS
 }) => {
   const [localActiveTab, setLocalActiveTab] = useState<string>("design");
   const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : localActiveTab;
@@ -479,6 +481,17 @@ export const CVForm: React.FC<CVFormProps> = ({
           <h2 className="text-sm font-bold text-white tracking-tight">Resume Builder</h2>
           <p className="text-[11px] text-slate-400 mt-0.5">Customize content, layout, and visual formatting</p>
         </div>
+        {onCheckATS && (
+          <button
+            onClick={onCheckATS}
+            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-850 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition flex items-center gap-1.5 shrink-0"
+            title="Run ATS Analysis on current resume draft"
+            id="cvform_check_ats_btn"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+            <span>ATS Audit</span>
+          </button>
+        )}
       </div>
 
       {/* Navigation Tabs Bar */}

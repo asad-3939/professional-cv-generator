@@ -5,7 +5,7 @@ import {
   RefreshCw as RefreshCwIcon, Layers as LayersIcon, Check as CheckIcon, Eye as EyeIcon, 
   LayoutDashboard as LayoutDashboardIcon, Cloud as CloudIcon, ArrowRight as ArrowRightIcon, 
   Trash2 as Trash2Icon, FileImage as FileImageIcon, Plus as PlusIcon, Copy as CopyIcon,
-  Edit2 as Edit2Icon, CheckCircle2 as CheckCircle2Icon
+  Edit2 as Edit2Icon, CheckCircle2 as CheckCircle2Icon, ShieldCheck as ShieldCheckIcon
 } from "lucide-react";
 import { CVData, DesignConfig, CVRecord, TemplateId } from "../types";
 import { 
@@ -50,6 +50,7 @@ interface UserDashboardProps {
   onRestoreCV: (cvData: CVData, designConfig?: DesignConfig) => void;
   onCreateNew?: () => void;
   onCVListUpdated?: (cvs: CVRecord[]) => void;
+  onCheckATS?: (cvRecord: CVRecord) => void;
 }
 
 const fallbackDesignConfig: DesignConfig = {
@@ -73,7 +74,8 @@ export function UserDashboard({
   onSelectCV,
   onRestoreCV,
   onCreateNew,
-  onCVListUpdated
+  onCVListUpdated,
+  onCheckATS
 }: UserDashboardProps) {
   const [activeTab, setActiveTab] = useState<"resumes" | "exports" | "ai">("resumes");
   const [cvsList, setCvsList] = useState<CVRecord[]>(initialCVs);
@@ -788,6 +790,20 @@ export function UserDashboard({
                               <EyeIcon className="w-3.5 h-3.5" />
                               <span>{isActive ? "Continue Editing" : "Open Resume"}</span>
                             </button>
+
+                            {onCheckATS && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onCheckATS(cv);
+                                }}
+                                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-850 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                                title="Run Advanced ATS Analysis on this resume"
+                              >
+                                <ShieldCheckIcon className="w-3.5 h-3.5 text-teal-400" />
+                                <span className="hidden md:inline">Check ATS</span>
+                              </button>
+                            )}
 
                             <button
                               onClick={(e) => handleDuplicateCV(cv, e)}

@@ -39,32 +39,26 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error("We couldn't connect to the database. Please check your connection and try again.");
 }
 
-// Sync user profile document on Google Sign-In (Safe non-destructive update)
+// Sync user profile document on Google Sign-In (Safe non-destructive upsert)
 export async function syncUserProfile(user: { uid: string; email: string; displayName?: string | null; photoURL?: string | null }) {
   if (!user || !user.uid) return;
   const userRef = doc(db, "users", user.uid);
   try {
-    const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) {
-      await setDoc(userRef, {
-        email: user.email || "",
-        displayName: user.displayName || user.email?.split("@")[0] || "User",
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-        downloadsCount: 0,
-      });
-    } else {
-      // Update only mutable fields, preserving createdAt and downloadsCount
-      const updates: Record<string, any> = {
-        lastLoginAt: serverTimestamp(),
-      };
-      if (user.email) updates.email = user.email;
-      if (user.displayName) updates.displayName = user.displayName;
-      
-      await setDoc(userRef, updates, { merge: true });
+    // Perform non-destructive merge upsert directly without a blocking read
+    // This succeeds immediately in local cache if offline and syncs with cloud automatically
+    const updates: Record<string, any> = {
+      email: user.email || "",
+      displayName: user.displayName || user.email?.split("@")[0] || "User",
+      lastLoginAt: serverTimestamp(),
+    };
+    if (user.photoURL) {
+      updates.photoURL = user.photoURL;
     }
+    
+    await setDoc(userRef, updates, { merge: true });
   } catch (err) {
-    console.error("Firestore user profile sync notice:", err);
+    // Non-fatal warning for profile telemetry
+    console.warn("Firestore user profile sync notice:", err);
   }
 }
 
@@ -89,8 +83,9 @@ export async function getUserCVs(uid: string, limitCount = 20): Promise<CVRecord
       });
     });
     return cvList;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.LIST, `users/${uid}/cvs`);
+  } catch (err: any) {
+    console.warn("Firestore getUserCVs query notice (offline or network fallback):", err?.message || err);
+    return [];
   }
 }
 

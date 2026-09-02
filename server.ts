@@ -534,7 +534,158 @@ Be diligent in extracting:
   }
 });
 
-// 5. Run ATS Score & Optimization Audit with Gemini
+// 5. Run Advanced ATS Score & Content Quality Audit with Gemini
+app.post("/api/cv/ats-analyze", async (req, res) => {
+  try {
+    const { cvData } = req.body;
+    if (!cvData) {
+      res.status(400).json({ error: "CV data is required for ATS analysis." });
+      return;
+    }
+
+    // Sanitize input to only include relevant CV fields (no user IDs or auth metadata)
+    const sanitizedCV = {
+      personal: {
+        fullName: cvData.personal?.fullName || "",
+        jobTitle: cvData.personal?.jobTitle || "",
+        email: cvData.personal?.email || "",
+        phone: cvData.personal?.phone || "",
+        location: cvData.personal?.location || "",
+        linkedin: cvData.personal?.linkedin || "",
+        github: cvData.personal?.github || "",
+        website: cvData.personal?.website || ""
+      },
+      summary: cvData.summary || "",
+      experience: (cvData.experience || []).map((exp: any) => ({
+        id: exp.id,
+        company: exp.company || "",
+        position: exp.position || "",
+        location: exp.location || "",
+        startDate: exp.startDate || "",
+        endDate: exp.endDate || "",
+        current: Boolean(exp.current),
+        description: exp.description || ""
+      })),
+      education: (cvData.education || []).map((edu: any) => ({
+        id: edu.id,
+        school: edu.school || "",
+        degree: edu.degree || "",
+        field: edu.field || "",
+        startDate: edu.startDate || "",
+        endDate: edu.endDate || "",
+        notes: edu.notes || ""
+      })),
+      skills: Array.isArray(cvData.skills) ? cvData.skills : [],
+      projects: (cvData.projects || []).map((pr: any) => ({
+        id: pr.id,
+        name: pr.name || "",
+        technologies: pr.technologies || "",
+        description: pr.description || ""
+      })),
+      certifications: (cvData.certifications || []).map((c: any) => ({
+        id: c.id,
+        name: c.name || "",
+        issuer: c.issuer || "",
+        date: c.date || ""
+      })),
+      languages: (cvData.languages || []).map((l: any) => ({
+        id: l.id,
+        name: l.name || "",
+        proficiency: l.proficiency || ""
+      }))
+    };
+
+    const ai = getGeminiClient();
+    const prompt = `You are a certified ATS (Applicant Tracking System) parser and senior recruiter auditing a candidate's CV.
+Evaluate the CV's content quality, achievement orientation, and readability against standard hiring standards for: "${sanitizedCV.personal.jobTitle || "Professional"}".
+
+CRITICAL AI SAFETY & ANTI-HALLUCINATION RULES:
+1. You must NEVER invent, assume, or fabricate any facts:
+   - Do NOT invent metrics, numbers, percentages, or dollar amounts.
+   - Do NOT invent skills, tools, programming languages, technologies, or certifications.
+   - Do NOT invent companies, job titles, degrees, schools, or dates.
+2. If metrics or evidence are missing, recommend in "how" that the user add their real metrics (e.g. "Add your actual team size, revenue increase, or latency reduction if available").
+3. When providing "suggestedText", you must STRICTLY preserve the user's original facts. Only convert passive phrasing ("Responsible for managing") into strong active voice ("Managed and coordinated"), remove filler words, and strengthen professional flow.
+
+Evaluate these specific areas:
+- Professional summary quality (is it concise, 3rd person, focused on target role?)
+- Experience bullet quality (action verbs, results orientation, clarity, avoiding passive phrases like "responsible for" or "duties included")
+- Weak/generic wording and cliches (e.g., "hard worker", "team player", "handled daily tasks")
+- Repetition and flow across bullet points
+- Tone and readability
+
+Candidate CV to Audit:
+${JSON.stringify(sanitizedCV, null, 2)}
+
+Provide scores from 0-100 for contentQuality, achievementImpact, and readability, plus an array of findings.
+For each finding, provide:
+- category: 'contentQuality' | 'achievementImpact' | 'readability'
+- severity: 'critical' (severe flaw) | 'important' (notable improvement) | 'suggestion' (polish) | 'passed' (good element)
+- section: readable string (e.g., 'Summary', 'Experience → Software Engineer', 'Skills')
+- itemId: ID of the corresponding experience/project/education item if applicable
+- bulletIndex: 0-indexed integer of the bullet line if targeting a specific bullet point
+- what: Clear explanation of what is weak or missing
+- why: Why it matters to ATS systems and recruiters
+- how: Actionable advice for how the user can improve it
+- originalText: The exact text from the resume if suggesting an improvement
+- suggestedText: A safe, fact-preserving rewrite in active voice (only if originalText was provided)`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            contentQualityScore: { type: Type.INTEGER, description: "Content quality and relevance score 0-100" },
+            achievementImpactScore: { type: Type.INTEGER, description: "Achievement and outcome impact score 0-100" },
+            readabilityScore: { type: Type.INTEGER, description: "Readability, tone, and brevity score 0-100" },
+            findings: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  category: { type: Type.STRING, enum: ["contentQuality", "achievementImpact", "readability"] },
+                  severity: { type: Type.STRING, enum: ["critical", "important", "suggestion", "passed"] },
+                  section: { type: Type.STRING },
+                  itemId: { type: Type.STRING },
+                  bulletIndex: { type: Type.INTEGER },
+                  what: { type: Type.STRING },
+                  why: { type: Type.STRING },
+                  how: { type: Type.STRING },
+                  originalText: { type: Type.STRING },
+                  suggestedText: { type: Type.STRING }
+                },
+                required: ["category", "severity", "section", "what", "why", "how"]
+              }
+            }
+          },
+          required: ["contentQualityScore", "achievementImpactScore", "readabilityScore", "findings"]
+        }
+      }
+    });
+
+    let resultText = response.text || "{}";
+    if (resultText.includes("```")) {
+      resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
+    }
+    resultText = resultText.trim();
+
+    try {
+      const parsedAudit = JSON.parse(resultText);
+      res.status(200).json(parsedAudit);
+    } catch (parseError) {
+      console.error("Failed to parse ATS Audit JSON response:", resultText, parseError);
+      res.status(500).json({ error: "Failed to assemble structured ATS audit from AI output." });
+    }
+  } catch (error: any) {
+    console.error("Error in /api/cv/ats-analyze:", error);
+    res.status(500).json({ error: error.message || "Failed to run ATS analysis." });
+  }
+});
+
+// Legacy ATS endpoint proxy for backwards compatibility
 app.post("/api/cv/ats", async (req, res) => {
   try {
     const { cvData, jobDescription } = req.body;
@@ -545,7 +696,7 @@ app.post("/api/cv/ats", async (req, res) => {
 
     const ai = getGeminiClient();
     const prompt = `You are an expert ATS (Applicant Tracking System) recruiter and career optimization specialist.
-Analyze the provided CV/resume against the specified target job description. If no target job description is provided, run a comprehensive industry-standard audit for a "${cvData.personal?.jobTitle || "Professional"}" role.
+Analyze the provided CV/resume against standard industry expectations for a "${cvData.personal?.jobTitle || "Professional"}" role.
 
 Analyze the resume for:
 1. Overall ATS compatibility score (0 to 100).
@@ -556,13 +707,10 @@ Analyze the resume for:
 CV/Resume under analysis:
 ${JSON.stringify(cvData, null, 2)}
 
-Target Job Description (Optional):
-${jobDescription ? `"""\n${jobDescription}\n"""` : "Not provided - evaluate based on standard industry expectations for: " + (cvData.personal?.jobTitle || "General Professional")}
-
 Return your analysis strictly in a clean JSON format matching the schema requested.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.7-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -596,7 +744,7 @@ Return your analysis strictly in a clean JSON format matching the schema request
                 properties: {
                   section: { type: Type.STRING, description: "The resume section, e.g., 'Summary', 'Experience', 'Skills', 'Projects'" },
                   finding: { type: Type.STRING, description: "What is currently lacking or could be improved" },
-                  recommendation: { type: Type.STRING, description: "Exact actionable recommendation (e.g., 'Add Python to skills', 'Rewrite bullet to quantify budget size')" },
+                  recommendation: { type: Type.STRING, description: "Exact actionable recommendation" },
                   impact: { type: Type.STRING, description: "Impact level of this change: 'High', 'Medium', or 'Low'" }
                 },
                 required: ["section", "finding", "recommendation", "impact"]

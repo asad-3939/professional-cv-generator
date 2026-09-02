@@ -96,3 +96,50 @@ export interface CVRecord {
 
 export type AutosaveStatus = "saved" | "saving" | "local" | "error";
 
+// ATS Analyzer Types
+export type ATSIssueSeverity = "critical" | "important" | "suggestion" | "passed";
+export type ATSCategory = 
+  | "parseability" 
+  | "structure" 
+  | "contentQuality" 
+  | "achievementImpact" 
+  | "readability" 
+  | "contactInfo";
+
+export interface ATSIssue {
+  id: string;
+  category: ATSCategory;
+  severity: ATSIssueSeverity;
+  section: string; // e.g. "Contact Information", "Experience → Senior Engineer → Bullet 2", "Professional Summary"
+  targetLocation?: {
+    sectionKey: keyof CVData;
+    itemId?: string;
+    bulletIndex?: number;
+  };
+  what: string; // What is wrong
+  why: string; // Why it matters
+  how: string; // How to improve it
+  originalText?: string;
+  suggestedText?: string;
+}
+
+export interface ATSCategoryScores {
+  parseability: number; // Weight: 25%
+  structure: number; // Weight: 20%
+  contentQuality: number; // Weight: 20%
+  achievementImpact: number; // Weight: 15%
+  readability: number; // Weight: 15%
+  contactInfo: number; // Weight: 5%
+}
+
+export interface ATSAnalysisResult {
+  overallScore: number; // 0 - 100
+  rating: "Exceptional" | "Strong ATS Match" | "Moderate Compatibility" | "Needs Optimization";
+  categoryScores: ATSCategoryScores;
+  criticalIssues: ATSIssue[];
+  importantImprovements: ATSIssue[];
+  suggestions: ATSIssue[];
+  passedChecks: ATSIssue[];
+  analyzedAt: string;
+}
+
