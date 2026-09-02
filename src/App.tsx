@@ -30,6 +30,7 @@ import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { TermsOfService } from "./components/TermsOfService";
 import { UserDropdown } from "./components/UserDropdown";
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
+import { DownloadDropdown } from "./components/DownloadDropdown";
 
 // Lazy-load Advanced ATS Analyzer to keep initial bundle ultra-lean
 const LazyATSAnalyzerModal = lazy(() => 
@@ -446,8 +447,8 @@ export default function App() {
           {/* Primary Top Utilities Header Bar */}
           <header className="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-3 md:px-6 shrink-0 relative z-30 shadow-md">
             
-            {/* Left: Brand + Active CV Title & Cloud Status */}
-            <div className="flex items-center gap-3 md:gap-4 min-w-0">
+            {/* Left: Brand + My CVs + Import */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div 
                 onClick={() => navigateTo("home")}
                 className="flex items-center gap-2 sm:gap-2.5 cursor-pointer hover:opacity-90 select-none group shrink-0"
@@ -465,166 +466,73 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Active CV Title / Quick Switch Button */}
-              {currentUser && (
-                <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-800 min-w-0">
-                  <button
-                    onClick={() => setIsHistoryModalOpen(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold text-slate-200 transition cursor-pointer max-w-[180px] truncate"
-                    title="Open My CVs Manager"
-                    id="header_switch_cv_btn"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span className="truncate">{activeCvTitle}</span>
-                  </button>
-                </div>
-              )}
+              {/* Utility: My CVs */}
+              <button
+                onClick={() => currentUser ? setIsHistoryModalOpen(true) : setIsAuthModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
+                title="Manage all your CV drafts and history"
+                id="header_my_cvs_btn"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">My CVs</span>
+              </button>
 
-              {/* Real-time Cloud Autosave Status Indicator */}
+              {/* Utility: Import Resume Button */}
+              <button
+                onClick={() => setIsAIAssistantOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
+                title="Import existing resume from PDF, Word, or text"
+                id="header_ai_assistant_btn"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Import</span>
+              </button>
+            </div>
+
+            {/* Right: Small Save Status, Download Dropdown, User Profile */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              
+              {/* Subtle Save/Sync Status Indicator */}
               <div className="hidden md:flex items-center">
                 {autosaveStatus === "saved" && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/40 border border-emerald-800/30 rounded-full text-[11px] font-medium text-emerald-400" title="All changes saved to your Google account in Firestore">
-                    <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Saved to Cloud</span>
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400" title="All changes saved to your Google account in Firestore">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Saved</span>
                   </div>
                 )}
                 {autosaveStatus === "saving" && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-950/40 border border-indigo-800/30 rounded-full text-[11px] font-medium text-indigo-300">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                    <span>Saving changes...</span>
+                    <span>Saving...</span>
                   </div>
                 )}
                 {autosaveStatus === "local" && (
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-full text-[11px] font-medium text-slate-400 hover:text-indigo-300 transition cursor-pointer"
+                    className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-indigo-300 transition cursor-pointer"
                     title="Sign in with Google to enable automatic cloud backup"
                   >
                     <Cloud className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Saved locally (Sign in to sync)</span>
+                    <span>Saved locally · <span className="underline decoration-slate-600 hover:decoration-indigo-400">Sign in to sync</span></span>
                   </button>
                 )}
                 {autosaveStatus === "error" && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-950/40 border border-rose-800/30 rounded-full text-[11px] font-medium text-rose-300" title="Sync issue. Retrying automatically.">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-rose-300" title="Sync issue. Retrying automatically.">
                     <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
                     <span>Sync issue (Retrying...)</span>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Right: Action Buttons & Auth */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              
-              {/* My Resumes Dashboard Trigger */}
-              {currentUser && (
-                <button
-                  onClick={() => setIsHistoryModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
-                  title="Manage all your CV drafts and download history"
-                  id="header_my_cvs_btn"
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" />
-                  <span className="hidden sm:inline">My CVs</span>
-                </button>
-              )}
-
-              {/* Advanced ATS Analyzer Trigger */}
-              <button
-                onClick={() => handleOpenATS()}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
-                title="Analyze ATS compatibility and content score"
-                id="header_check_ats_btn"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-                <span className="hidden sm:inline">Check ATS</span>
-                <span className="inline sm:hidden">ATS</span>
-              </button>
-
-              {/* Job Description Match Trigger */}
-              <button
-                onClick={() => handleOpenJobMatch()}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
-                title="Match CV against a target job description"
-                id="header_match_job_btn"
-              >
-                <Target className="w-3.5 h-3.5 text-teal-400" />
-                <span className="hidden sm:inline">Match Job</span>
-                <span className="inline sm:hidden">Match</span>
-              </button>
-
-              {/* Import Resume Button */}
-              <button
-                onClick={() => setIsAIAssistantOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
-                title="Import existing resume from PDF, Word, or text"
-                id="header_ai_assistant_btn"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="hidden md:inline">Import</span>
-              </button>
-              
-              {/* Reset draft */}
-              <button
-                onClick={handleResetToSample}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-lg text-xs font-medium cursor-pointer transition select-none"
-                title="Reset current draft"
-                id="reset_template_btn"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Reset</span>
-              </button>
-
-              {/* Download PDF button (Ultra-optimized <300KB) */}
-              <button
-                onClick={() => handleExport("pdf")}
-                disabled={isExporting !== null}
-                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white rounded-lg text-xs font-bold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
-                title="Download ultra-optimized PDF (<300 KB)"
-                id="download_pdf_btn"
-              >
-                {isExporting === "pdf" ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                    <span className="hidden sm:inline">Exporting...</span>
-                  </>
-                ) : (
-                  <>
-                    <FileDown className="w-3.5 h-3.5 text-white" />
-                    <span className="hidden sm:inline">Download PDF</span>
-                    <span className="inline sm:hidden">PDF</span>
-                  </>
-                )}
-              </button>
-
-              {/* Vector ATS Print button */}
-              <button
-                onClick={() => handleExport("vector-pdf")}
-                disabled={isExporting !== null}
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-800 text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
-                title="Print or Save as 100% Vector ATS PDF"
-                id="print_vector_pdf_btn"
-              >
-                <Printer className="w-3.5 h-3.5 text-teal-400" />
-                <span className="hidden lg:inline">Vector ATS</span>
-                <span className="inline lg:hidden">Print</span>
-              </button>
-
-              {/* Download PNG button */}
-              <button
-                onClick={() => handleExport("png")}
-                disabled={isExporting !== null}
-                className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-800 text-slate-200 border border-slate-800 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition select-none shrink-0"
-                title="Download as PNG image"
-                id="download_png_btn"
-              >
-                <FileImage className="w-3.5 h-3.5 text-slate-300" />
-                <span>PNG</span>
-              </button>
+              {/* Primary Action: Download Dropdown */}
+              <DownloadDropdown
+                onExport={handleExport}
+                isExporting={isExporting}
+              />
 
               {/* User Google Auth controls */}
               {currentUser ? (
-                <div className="border-l border-slate-800 pl-2 sm:pl-3 ml-0.5 sm:ml-1 shrink-0">
+                <div className="border-l border-slate-800 pl-2 sm:pl-3 shrink-0">
                   <UserDropdown
                     currentUser={currentUser}
                     onOpenDashboard={() => setIsHistoryModalOpen(true)}
@@ -644,10 +552,10 @@ export default function App() {
                     setErrorToast(null);
                     setIsAuthModalOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition select-none cursor-pointer shrink-0 ml-1 shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-semibold transition select-none cursor-pointer shrink-0 shadow-sm"
                   id="header_login_btn"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-white" />
+                  <LogIn className="w-3.5 h-3.5 text-slate-400" />
                   <span>Sign In</span>
                 </button>
               )}
@@ -700,6 +608,7 @@ export default function App() {
                 onActiveTabChange={setFormActiveTab}
                 onCheckATS={() => handleOpenATS()}
                 onMatchJob={() => handleOpenJobMatch()}
+                onResetDraft={handleResetToSample}
               />
             </div>
 

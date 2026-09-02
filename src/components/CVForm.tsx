@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   User, Briefcase, GraduationCap, Code, FileText, Award, 
   Languages, Plus, Trash2, Palette, Sparkles, SlidersHorizontal, Loader2, Check,
-  ExternalLink, Layers, ChevronRight, ShieldCheck, Target
+  ExternalLink, Layers, ChevronRight, ShieldCheck, Target, MoreHorizontal, RotateCcw
 } from "lucide-react";
 import { CVData, DesignConfig, WorkExperience, Education, Project, Certification, Language, TemplateId } from "../types";
 import { doc, setDoc, arrayUnion } from "firebase/firestore";
@@ -18,6 +18,7 @@ interface CVFormProps {
   onActiveTabChange?: (tab: string) => void;
   onCheckATS?: () => void;
   onMatchJob?: () => void;
+  onResetDraft?: () => void;
 }
 
 export const CVForm: React.FC<CVFormProps> = ({ 
@@ -29,13 +30,42 @@ export const CVForm: React.FC<CVFormProps> = ({
   activeTab: controlledActiveTab,
   onActiveTabChange,
   onCheckATS,
-  onMatchJob
+  onMatchJob,
+  onResetDraft
 }) => {
   const [localActiveTab, setLocalActiveTab] = useState<string>("design");
   const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : localActiveTab;
   const setActiveTab = onActiveTabChange !== undefined ? onActiveTabChange : setLocalActiveTab;
 
   const [skillInput, setSkillInput] = useState<string>("");
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState<boolean>(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close more menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    if (isMoreMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMoreMenuOpen]);
+
+  // Close more menu on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    if (isMoreMenuOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isMoreMenuOpen]);
   
   // Loading states for smart assistance features
   const [polishingId, setPolishingId] = useState<string | null>(null);
@@ -478,34 +508,83 @@ export const CVForm: React.FC<CVFormProps> = ({
   return (
     <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-100 overflow-hidden font-sans">
       {/* Header */}
-      <div className="px-5 py-3.5 border-b border-slate-800 bg-slate-950 flex justify-between items-center shrink-0">
-        <div>
-          <h2 className="text-sm font-bold text-white tracking-tight">Resume Builder</h2>
-          <p className="text-[11px] text-slate-400 mt-0.5">Customize content, layout, and visual formatting</p>
+      <div className="px-4 sm:px-5 py-3 border-b border-slate-800 bg-slate-950 flex justify-between items-center shrink-0">
+        <div className="min-w-0 mr-2">
+          <h2 className="text-sm font-bold text-white tracking-tight truncate">Resume Builder</h2>
+          <p className="text-[11px] text-slate-400 mt-0.5 truncate hidden sm:block">Customize content, layout, and visual formatting</p>
         </div>
-        <div className="flex items-center gap-2">
+        
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {onCheckATS && (
             <button
               onClick={onCheckATS}
-              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-850 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition flex items-center gap-1.5 shrink-0"
-              title="Run ATS Analysis on current resume draft"
+              className="px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition flex items-center gap-1.5 shrink-0"
+              title="Run ATS Check on current resume draft"
               id="cvform_check_ats_btn"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-              <span>ATS Audit</span>
+              <span>ATS Check</span>
             </button>
           )}
+
           {onMatchJob && (
             <button
               onClick={onMatchJob}
-              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-850 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition flex items-center gap-1.5 shrink-0"
+              className="px-2.5 sm:px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-lg text-xs font-semibold tracking-tight shadow-sm cursor-pointer transition flex items-center gap-1.5 shrink-0"
               title="Compare current draft against a target job description"
               id="cvform_match_job_btn"
             >
               <Target className="w-3.5 h-3.5 text-teal-400" />
-              <span>Match Job</span>
+              <span>Job Match</span>
             </button>
           )}
+
+          {/* More actions menu (Reset CV, etc.) */}
+          <div className="relative inline-block text-left" ref={moreMenuRef} id="cvform_more_menu_container">
+            <button
+              onClick={() => setIsMoreMenuOpen(prev => !prev)}
+              className="p-1.5 sm:px-2 sm:py-1.5 bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700 rounded-lg text-xs font-medium cursor-pointer transition flex items-center gap-1 shrink-0"
+              title="More actions"
+              id="cvform_more_btn"
+              aria-expanded={isMoreMenuOpen}
+              aria-haspopup="true"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+              <span className="sr-only sm:not-sr-only sm:inline text-xs font-medium text-slate-400">More</span>
+            </button>
+
+            {isMoreMenuOpen && (
+              <div 
+                className="absolute right-0 mt-2 w-52 origin-top-right bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-800/60"
+                role="menu"
+                id="cvform_more_menu_dropdown"
+              >
+                <div className="px-2.5 py-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Draft Options</span>
+                </div>
+
+                <div className="py-1">
+                  {onResetDraft && (
+                    <button
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        onResetDraft();
+                      }}
+                      className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 transition-colors text-xs group cursor-pointer"
+                      role="menuitem"
+                      id="cvform_reset_draft_opt"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-400 transition-colors" />
+                      <div>
+                        <div className="font-semibold text-slate-200 group-hover:text-rose-200">Reset CV</div>
+                        <div className="text-[10px] text-slate-500">Restore starter template data</div>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

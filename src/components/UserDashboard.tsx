@@ -801,10 +801,10 @@ export function UserDashboard({
                                   onCheckATS(cv);
                                 }}
                                 className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-850 text-teal-300 border border-slate-800 hover:border-teal-700/50 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-sm"
-                                title="Run Advanced ATS Analysis on this resume"
+                                title="Run ATS Check on this resume"
                               >
                                 <ShieldCheckIcon className="w-3.5 h-3.5 text-teal-400" />
-                                <span className="hidden md:inline">Check ATS</span>
+                                <span className="hidden md:inline">ATS Check</span>
                               </button>
                             )}
 
