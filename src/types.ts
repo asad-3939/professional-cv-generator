@@ -203,6 +203,7 @@ export interface JobMatchResult {
   overallScore: number; // 0 - 100 (Computed deterministically from weighted categories)
   matchRating: "High Match" | "Strong Match" | "Moderate Match" | "Low Match";
   jobTitle?: string;
+  companyName?: string;
   categoryScores: JobMatchCategoryScores;
   matchingSkills: SkillMatchItem[];
   missingSkills: SkillMatchItem[];

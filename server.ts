@@ -162,6 +162,30 @@ const getGeminiClient = () => {
   });
 };
 
+// Resilient helper to execute generation with automatic model fallback for transient spikes
+async function generateContentSafe(ai: GoogleGenAI, params: any) {
+  const primaryModel = params.model || "gemini-3.7-flash";
+  const fallbackModel = primaryModel === "gemini-3.7-flash" ? "gemini-flash-latest" : "gemini-3.7-flash";
+  const modelsToTry = [primaryModel, fallbackModel];
+
+  let lastError: any = null;
+  for (const model of modelsToTry) {
+    try {
+      const response = await ai.models.generateContent({
+        ...params,
+        model
+      });
+      return response;
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Gemini model ${model} attempt failed:`, err?.message || err);
+      // Wait a short moment before trying fallback
+      await new Promise(res => setTimeout(res, 500));
+    }
+  }
+  throw lastError;
+}
+
 // API Endpoints
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
@@ -194,8 +218,8 @@ Job Details:
 Raw Text:
 "${text}"`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const response = await generateContentSafe(ai, {
+      model: "gemini-3.7-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -233,8 +257,8 @@ Guidelines:
 - Do NOT use pronouns like "I", "me", "my" (keep it in third-person professional style, e.g., "Result-oriented software engineer with 5+ years of experience...").
 - Return ONLY the summary text block. Do not include headings, notes, introductory statements, or chat filler.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const response = await generateContentSafe(ai, {
+      model: "gemini-3.7-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -262,8 +286,8 @@ app.post("/api/cv/suggest-skills", async (req, res) => {
     const prompt = `Provide 10-12 highly relevant and popular tech skills, soft skills, or tools for a professional seeking a "${jobTitle}" role, as well as 3 popular industry certifications.
 Format the output as a clean JSON objects list.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const response = await generateContentSafe(ai, {
+      model: "gemini-3.7-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -360,8 +384,8 @@ Be diligent in extracting:
       });
     }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await generateContentSafe(ai, {
+      model: "gemini-3.7-flash",
       contents: { parts },
       config: {
         responseMimeType: "application/json",
@@ -630,7 +654,7 @@ For each finding, provide:
 - originalText: The exact text from the resume if suggesting an improvement
 - suggestedText: A safe, fact-preserving rewrite in active voice (only if originalText was provided)`;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentSafe(ai, {
       model: "gemini-3.7-flash",
       contents: prompt,
       config: {
@@ -689,8 +713,13 @@ For each finding, provide:
 app.post("/api/cv/job-match", async (req, res) => {
   try {
     const { cvData, jobDescription } = req.body;
-    if (!cvData || !jobDescription || !jobDescription.trim()) {
-      res.status(400).json({ error: "Both CV data and Job Description text are required for Job Match." });
+    if (!cvData || typeof cvData !== "object") {
+      res.status(400).json({ error: "Candidate CV data is required to perform Job Match analysis." });
+      return;
+    }
+
+    if (!jobDescription || typeof jobDescription !== "string" || jobDescription.trim().length < 20) {
+      res.status(400).json({ error: "A valid job description (at least 20 characters) is required." });
       return;
     }
 
@@ -703,7 +732,7 @@ app.post("/api/cv/job-match", async (req, res) => {
       },
       summary: cvData.summary || "",
       experience: (cvData.experience || []).map((exp: any) => ({
-        id: exp.id,
+        id: exp.id || "",
         company: exp.company || "",
         position: exp.position || "",
         location: exp.location || "",
@@ -713,7 +742,7 @@ app.post("/api/cv/job-match", async (req, res) => {
         description: exp.description || ""
       })),
       education: (cvData.education || []).map((edu: any) => ({
-        id: edu.id,
+        id: edu.id || "",
         school: edu.school || "",
         degree: edu.degree || "",
         field: edu.field || "",
@@ -723,34 +752,35 @@ app.post("/api/cv/job-match", async (req, res) => {
       })),
       skills: Array.isArray(cvData.skills) ? cvData.skills : [],
       projects: (cvData.projects || []).map((pr: any) => ({
-        id: pr.id,
+        id: pr.id || "",
         name: pr.name || "",
         technologies: pr.technologies || "",
         description: pr.description || ""
       })),
       certifications: (cvData.certifications || []).map((c: any) => ({
-        id: c.id,
+        id: c.id || "",
         name: c.name || "",
         issuer: c.issuer || ""
       })),
       languages: (cvData.languages || []).map((l: any) => ({
-        id: l.id,
+        id: l.id || "",
         name: l.name || "",
         proficiency: l.proficiency || ""
       }))
     };
 
     const ai = getGeminiClient();
-    const prompt = `You are a senior technical recruiter and talent matching expert performing a precise semantic comparison between a candidate's CV and a target Job Description.
+    const prompt = `You are a principal technical recruiter and talent matching expert performing a real, rigorous comparison between a candidate's CV and a target Job Description.
 
-CRITICAL ANTI-HALLUCINATION & INTEGRITY RULES:
-1. You must NEVER invent, assume, or fabricate any candidate information:
+STRICT ANTI-HALLUCINATION & INTEGRITY RULES:
+1. NEVER invent, assume, or fabricate candidate information:
    - Do NOT invent metrics, numbers, percentages, or achievements.
    - Do NOT invent skills, tools, languages, frameworks, or certifications not in the CV.
    - Do NOT invent companies, job titles, degrees, or years of experience.
-2. If the Job requires a skill, tool, or qualification that is NOT present in the candidate's CV, you MUST classify it as "missing" (Missing from CV).
-3. In gap recommendations, ALWAYS advise: "If you genuinely have [Skill/Experience], highlight it in [Section]. If not, do not add it."
-4. In "contentImprovements", ONLY suggest rewrites for sentences/bullets ALREADY written in the CV to better align with the job's terminology while preserving 100% of the candidate's authentic facts.
+2. If the Job requires a skill, tool, framework, or qualification absent from the CV, you MUST classify it as "missing" (status: "missing", matchType: "none"). Label it clearly as "Missing from CV". Do NOT automatically add it.
+3. In gap recommendations, ALWAYS provide authentic guidance: "If you have genuine experience with [Skill/Tool], highlight it in [Relevant Section]. If you do not have this experience, do not fabricate it."
+4. In "contentImprovements", ONLY suggest rewrites for sentences/bullets ALREADY present in the CV to better align with the job description's terminology while preserving 100% of the candidate's authentic facts.
+5. Provide realistic, non-inflated category scores (0-100) based on genuine evidence.
 
 Target Job Description:
 """
@@ -760,21 +790,28 @@ ${jobDescription.trim()}
 Candidate CV:
 ${JSON.stringify(sanitizedCV, null, 2)}
 
-Evaluate the following:
-1. Detected Target Job Title from the JD.
-2. Semantic match scores (0-100) for:
-   - skillsMatchScore: Semantic & exact skill match.
-   - experienceAlignmentScore: Seniority, domain experience, and role depth match.
-   - keywordCoverageScore: Contextual coverage of key industry terms.
-   - roleRelevanceScore: Overall career profile fit for this vacancy.
-   - educationAlignmentScore: Education and certification alignment.
-3. semanticMatchingSkills: Skills present in the CV that semantically satisfy JD requirements.
-4. missingImportantSkills: Crucial skills or tools explicitly required by JD that are absent from CV.
-5. strengths: 2-4 areas where candidate's real experience directly matches key requirements.
-6. gaps: Concrete gaps where candidate does not demonstrate a stated job requirement.
-7. contentImprovements: 1-3 targeted active-voice rewrites for existing CV bullets or summary that sharpen alignment with this specific role without adding fabricated facts.`;
+Perform the following:
+1. Extract the target job title from the job description.
+2. Extract the company name (if mentioned in the vacancy).
+3. Identify all skills and tools required or preferred by the job. Partition them into:
+   - matchingSkills: Skills present in the CV that satisfy JD requirements (state the foundLocation in the CV).
+   - missingSkills: Skills/tools required or preferred by the job that are absent from the CV.
+4. Extract key keywords/technologies with their priority ("required" | "preferred" | "general"), status ("present" | "missing"), frequencyInJob, and frequencyInCV.
+5. Identify 2-4 key alignment strengths with direct evidence quotes from the CV.
+6. Identify requirement gaps with:
+   - jobRequirement: what the job specifically asks for
+   - cvStatus: what the CV currently shows (e.g. "Not mentioned in CV" or "Candidate has X years vs Y years required")
+   - recommendation: safe, authentic advice on how to address it if the candidate possesses this experience
+   - severity: "high" | "medium" | "low"
+7. Identify 1-3 targeted content improvements (rewrites of existing CV bullets or summary only) to improve keyword alignment while preserving candidate facts.
+8. Evaluate category scores (0-100):
+   - skillsMatchScore (Weight 30%): based on matched skills / total required skills
+   - experienceAlignmentScore (Weight 25%): based on required years vs candidate years and domain fit
+   - keywordCoverageScore (Weight 20%): based on presence of essential job keywords
+   - roleRelevanceScore (Weight 15%): based on job title and career trajectory match
+   - educationAlignmentScore (Weight 10%): based on degree, field, or certification requirements`;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentSafe(ai, {
       model: "gemini-3.7-flash",
       contents: prompt,
       config: {
@@ -783,30 +820,50 @@ Evaluate the following:
           type: Type.OBJECT,
           properties: {
             detectedJobTitle: { type: Type.STRING, description: "Job title extracted from the Job Description" },
-            skillsMatchScore: { type: Type.INTEGER, description: "0-100 semantic skills match score" },
-            experienceAlignmentScore: { type: Type.INTEGER, description: "0-100 experience relevance score" },
+            detectedCompany: { type: Type.STRING, description: "Company name extracted from the Job Description if present" },
+            skillsMatchScore: { type: Type.INTEGER, description: "0-100 skills match score" },
+            experienceAlignmentScore: { type: Type.INTEGER, description: "0-100 experience alignment score" },
             keywordCoverageScore: { type: Type.INTEGER, description: "0-100 keyword coverage score" },
             roleRelevanceScore: { type: Type.INTEGER, description: "0-100 role relevance score" },
             educationAlignmentScore: { type: Type.INTEGER, description: "0-100 education alignment score" },
-            semanticMatchingSkills: {
+            matchingSkills: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
                   name: { type: Type.STRING },
+                  status: { type: Type.STRING, enum: ["matched", "partial"] },
+                  matchType: { type: Type.STRING, enum: ["exact", "semantic"] },
                   foundLocation: { type: Type.STRING, description: "Where in CV this skill is evidenced" }
                 },
-                required: ["name"]
+                required: ["name", "status"]
               }
             },
-            missingImportantSkills: {
+            missingSkills: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  name: { type: Type.STRING }
+                  name: { type: Type.STRING },
+                  status: { type: Type.STRING, enum: ["missing"] },
+                  matchType: { type: Type.STRING, enum: ["none"] },
+                  category: { type: Type.STRING }
                 },
-                required: ["name"]
+                required: ["name", "status"]
+              }
+            },
+            keywords: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  keyword: { type: Type.STRING },
+                  priority: { type: Type.STRING, enum: ["required", "preferred", "general"] },
+                  status: { type: Type.STRING, enum: ["present", "missing"] },
+                  frequencyInJob: { type: Type.INTEGER },
+                  frequencyInCV: { type: Type.INTEGER }
+                },
+                required: ["keyword", "priority", "status", "frequencyInJob", "frequencyInCV"]
               }
             },
             strengths: {
@@ -841,7 +898,6 @@ Evaluate the following:
                 properties: {
                   section: { type: Type.STRING },
                   itemId: { type: Type.STRING },
-                  bulletIndex: { type: Type.INTEGER },
                   originalText: { type: Type.STRING },
                   suggestedText: { type: Type.STRING },
                   explanation: { type: Type.STRING }
@@ -856,6 +912,8 @@ Evaluate the following:
             "keywordCoverageScore",
             "roleRelevanceScore",
             "educationAlignmentScore",
+            "matchingSkills",
+            "missingSkills",
             "strengths",
             "gaps"
           ]
@@ -871,7 +929,57 @@ Evaluate the following:
 
     try {
       const parsedMatch = JSON.parse(resultText);
-      res.status(200).json(parsedMatch);
+
+      // Clamp category scores strictly between 0 and 100
+      const skillsScore = Math.min(100, Math.max(0, Math.round(Number(parsedMatch.skillsMatchScore) || 0)));
+      const expScore = Math.min(100, Math.max(0, Math.round(Number(parsedMatch.experienceAlignmentScore) || 0)));
+      const kwScore = Math.min(100, Math.max(0, Math.round(Number(parsedMatch.keywordCoverageScore) || 0)));
+      const roleScore = Math.min(100, Math.max(0, Math.round(Number(parsedMatch.roleRelevanceScore) || 0)));
+      const eduScore = Math.min(100, Math.max(0, Math.round(Number(parsedMatch.educationAlignmentScore) || 0)));
+
+      // Compute overall score with weighted formula:
+      // Skills: 30%, Experience: 25%, Keywords: 20%, Role: 15%, Education: 10%
+      const overallScore = Math.min(100, Math.max(0, Math.round(
+        skillsScore * 0.30 +
+        expScore * 0.25 +
+        kwScore * 0.20 +
+        roleScore * 0.15 +
+        eduScore * 0.10
+      )));
+
+      let matchRating = "Moderate Match";
+      if (overallScore >= 85) {
+        matchRating = "High Match";
+      } else if (overallScore >= 70) {
+        matchRating = "Strong Match";
+      } else if (overallScore >= 50) {
+        matchRating = "Moderate Match";
+      } else {
+        matchRating = "Low Match";
+      }
+
+      const formattedResult = {
+        overallScore,
+        matchRating,
+        jobTitle: parsedMatch.detectedJobTitle || undefined,
+        companyName: parsedMatch.detectedCompany || undefined,
+        categoryScores: {
+          skillsMatch: skillsScore,
+          experienceAlignment: expScore,
+          keywordCoverage: kwScore,
+          roleRelevance: roleScore,
+          educationAlignment: eduScore
+        },
+        matchingSkills: Array.isArray(parsedMatch.matchingSkills) ? parsedMatch.matchingSkills : [],
+        missingSkills: Array.isArray(parsedMatch.missingSkills) ? parsedMatch.missingSkills : [],
+        keywords: Array.isArray(parsedMatch.keywords) ? parsedMatch.keywords : [],
+        strengths: Array.isArray(parsedMatch.strengths) ? parsedMatch.strengths : [],
+        gaps: Array.isArray(parsedMatch.gaps) ? parsedMatch.gaps : [],
+        contentImprovements: Array.isArray(parsedMatch.contentImprovements) ? parsedMatch.contentImprovements : [],
+        analyzedAt: new Date().toISOString()
+      };
+
+      res.status(200).json(formattedResult);
     } catch (parseError) {
       console.error("Failed to parse Job Match JSON response:", resultText, parseError);
       res.status(500).json({ error: "Failed to assemble structured Job Match analysis from AI output." });

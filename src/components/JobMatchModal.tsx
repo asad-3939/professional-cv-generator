@@ -93,20 +93,37 @@ export const JobMatchModal: React.FC<JobMatchModalProps> = ({
   if (!isOpen) return null;
 
   const handleRunAnalysis = async () => {
-    if (!jobDescription.trim()) {
-      setErrorMsg("Please paste a job description or select one of the sample vacancies.");
+    // 1. Validate CV Content
+    const hasCvContent = Boolean(
+      cvData && (
+        cvData.personal?.fullName?.trim() ||
+        cvData.personal?.jobTitle?.trim() ||
+        (cvData.experience && cvData.experience.length > 0) ||
+        (cvData.skills && cvData.skills.length > 0) ||
+        (cvData.education && cvData.education.length > 0)
+      )
+    );
+
+    if (!hasCvContent) {
+      setErrorMsg("Your selected resume has no content yet. Please enter your work experience, skills, or personal info first before comparing against a vacancy.");
+      return;
+    }
+
+    // 2. Validate Job Description
+    if (!jobDescription || jobDescription.trim().length < 20) {
+      setErrorMsg("Please paste a complete job description (at least 20 characters) with role requirements to run analysis.");
       return;
     }
 
     setIsAnalyzing(true);
     setErrorMsg(null);
-    setAnalysisStep("Extracting job requirements, skills, and keywords...");
+    setAnalysisStep("Extracting vacancy requirements, skills, and target keywords...");
 
     try {
       // Step 1: Run client-side deterministic extraction & exact matching
       const ruleResult = runDeterministicJobMatch(cvData, jobDescription);
 
-      setAnalysisStep("Evaluating semantic experience relevance and gap analysis with AI...");
+      setAnalysisStep("Performing deep semantic comparison and gap identification with AI...");
 
       // Step 2: Fetch AI semantic assessment from server endpoint
       let aiResponse: any = null;
@@ -123,13 +140,14 @@ export const JobMatchModal: React.FC<JobMatchModalProps> = ({
         if (res.ok) {
           aiResponse = await res.json();
         } else {
-          console.warn("AI Job match endpoint returned non-200, proceeding with deterministic match:", res.status);
+          const errData = await res.json().catch(() => ({}));
+          console.warn("AI Job match endpoint notice:", errData.error || res.status);
         }
       } catch (fetchErr) {
-        console.warn("AI Job match network notice, proceeding with deterministic match:", fetchErr);
+        console.warn("AI Job match network notice, proceeding with deterministic engine:", fetchErr);
       }
 
-      setAnalysisStep("Computing weighted match scores and tailoring recommendations...");
+      setAnalysisStep("Calculating weighted match scores and tailoring recommendations...");
 
       // Step 3: Synthesize deterministic and AI results
       const synthesized = synthesizeJobMatchResult(ruleResult, aiResponse);

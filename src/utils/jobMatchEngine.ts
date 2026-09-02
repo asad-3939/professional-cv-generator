@@ -260,7 +260,8 @@ export function runDeterministicJobMatch(cvData: CVData, jobDescription: string)
 
 /**
  * Synthesize Deterministic Checks with AI Semantic Match Output
- * Strict anti-hallucination formula: application logic controls the final score!
+ * Strict anti-hallucination formula: application logic enforces exact category weights:
+ * Skills 30%, Experience 25%, Keywords 20%, Role Relevance 15%, Education Alignment 10%
  */
 export function synthesizeJobMatchResult(
   ruleResult: ReturnType<typeof runDeterministicJobMatch>,
@@ -268,23 +269,46 @@ export function synthesizeJobMatchResult(
 ): JobMatchResult {
   const dScores = ruleResult.deterministicScores;
 
-  // AI Semantic Scores (default to deterministic if AI response missing or failed)
-  const aiSkillsScore = typeof aiResponse?.skillsMatchScore === "number" ? aiResponse.skillsMatchScore : dScores.skillsMatch;
-  const aiExpScore = typeof aiResponse?.experienceAlignmentScore === "number" ? aiResponse.experienceAlignmentScore : dScores.experienceAlignment;
-  const aiKeywordScore = typeof aiResponse?.keywordCoverageScore === "number" ? aiResponse.keywordCoverageScore : dScores.keywordCoverage;
-  const aiRoleScore = typeof aiResponse?.roleRelevanceScore === "number" ? aiResponse.roleRelevanceScore : dScores.roleRelevance;
-  const aiEduScore = typeof aiResponse?.educationAlignmentScore === "number" ? aiResponse.educationAlignmentScore : dScores.educationAlignment;
+  // Extract category scores from AI response or fallback to deterministic rules
+  const skillsScore = typeof aiResponse?.categoryScores?.skillsMatch === "number"
+    ? aiResponse.categoryScores.skillsMatch
+    : typeof aiResponse?.skillsMatchScore === "number"
+      ? aiResponse.skillsMatchScore
+      : dScores.skillsMatch;
 
-  // Weighted Category Scores (Hybrid: 50% rule + 50% AI semantic)
+  const expScore = typeof aiResponse?.categoryScores?.experienceAlignment === "number"
+    ? aiResponse.categoryScores.experienceAlignment
+    : typeof aiResponse?.experienceAlignmentScore === "number"
+      ? aiResponse.experienceAlignmentScore
+      : dScores.experienceAlignment;
+
+  const kwScore = typeof aiResponse?.categoryScores?.keywordCoverage === "number"
+    ? aiResponse.categoryScores.keywordCoverage
+    : typeof aiResponse?.keywordCoverageScore === "number"
+      ? aiResponse.keywordCoverageScore
+      : dScores.keywordCoverage;
+
+  const roleScore = typeof aiResponse?.categoryScores?.roleRelevance === "number"
+    ? aiResponse.categoryScores.roleRelevance
+    : typeof aiResponse?.roleRelevanceScore === "number"
+      ? aiResponse.roleRelevanceScore
+      : dScores.roleRelevance;
+
+  const eduScore = typeof aiResponse?.categoryScores?.educationAlignment === "number"
+    ? aiResponse.categoryScores.educationAlignment
+    : typeof aiResponse?.educationAlignmentScore === "number"
+      ? aiResponse.educationAlignmentScore
+      : dScores.educationAlignment;
+
   const categoryScores: JobMatchCategoryScores = {
-    skillsMatch: Math.min(100, Math.max(0, Math.round(dScores.skillsMatch * 0.45 + aiSkillsScore * 0.55))),
-    experienceAlignment: Math.min(100, Math.max(0, Math.round(dScores.experienceAlignment * 0.40 + aiExpScore * 0.60))),
-    keywordCoverage: Math.min(100, Math.max(0, Math.round(dScores.keywordCoverage * 0.70 + aiKeywordScore * 0.30))),
-    roleRelevance: Math.min(100, Math.max(0, Math.round(dScores.roleRelevance * 0.35 + aiRoleScore * 0.65))),
-    educationAlignment: Math.min(100, Math.max(0, Math.round(dScores.educationAlignment * 0.60 + aiEduScore * 0.40)))
+    skillsMatch: Math.min(100, Math.max(0, Math.round(skillsScore))),
+    experienceAlignment: Math.min(100, Math.max(0, Math.round(expScore))),
+    keywordCoverage: Math.min(100, Math.max(0, Math.round(kwScore))),
+    roleRelevance: Math.min(100, Math.max(0, Math.round(roleScore))),
+    educationAlignment: Math.min(100, Math.max(0, Math.round(eduScore)))
   };
 
-  // Compute Overall Score Strictly in Application Logic with fixed category weights:
+  // Compute Overall Score with the required weighted formula:
   // Skills: 30%, Experience: 25%, Keywords: 20%, Role: 15%, Education: 10%
   const overallScore = Math.min(100, Math.max(0, Math.round(
     categoryScores.skillsMatch * 0.30 +
@@ -306,62 +330,76 @@ export function synthesizeJobMatchResult(
     matchRating = "Low Match";
   }
 
-  // Merge Skills (Ensure no duplicate names)
+  // Merge Matching Skills
   const matchingMap = new Map<string, SkillMatchItem>();
-  ruleResult.matchingSkills.forEach(s => matchingMap.set(s.name.toLowerCase(), s));
-  if (Array.isArray(aiResponse?.semanticMatchingSkills)) {
-    aiResponse.semanticMatchingSkills.forEach((s: any) => {
-      if (s.name && !matchingMap.has(s.name.toLowerCase())) {
+  if (Array.isArray(aiResponse?.matchingSkills) && aiResponse.matchingSkills.length > 0) {
+    aiResponse.matchingSkills.forEach((s: any) => {
+      if (s.name) {
         matchingMap.set(s.name.toLowerCase(), {
           name: s.name,
-          status: "matched",
-          matchType: "semantic",
-          foundLocation: s.foundLocation || "CV Context"
+          status: s.status === "partial" ? "partial" : "matched",
+          matchType: s.matchType === "exact" ? "exact" : "semantic",
+          foundLocation: s.foundLocation || "CV Content"
         });
       }
     });
+  } else {
+    ruleResult.matchingSkills.forEach(s => matchingMap.set(s.name.toLowerCase(), s));
   }
 
+  // Merge Missing Skills
   const missingMap = new Map<string, SkillMatchItem>();
-  ruleResult.missingSkills.forEach(s => {
-    if (!matchingMap.has(s.name.toLowerCase())) {
-      missingMap.set(s.name.toLowerCase(), s);
-    }
-  });
-
-  if (Array.isArray(aiResponse?.missingImportantSkills)) {
-    aiResponse.missingImportantSkills.forEach((s: any) => {
+  if (Array.isArray(aiResponse?.missingSkills) && aiResponse.missingSkills.length > 0) {
+    aiResponse.missingSkills.forEach((s: any) => {
       const name = typeof s === "string" ? s : s.name;
       if (name && !matchingMap.has(name.toLowerCase())) {
         missingMap.set(name.toLowerCase(), {
           name,
           status: "missing",
-          matchType: "none"
+          matchType: "none",
+          category: s.category || undefined
         });
+      }
+    });
+  } else {
+    ruleResult.missingSkills.forEach(s => {
+      if (!matchingMap.has(s.name.toLowerCase())) {
+        missingMap.set(s.name.toLowerCase(), s);
       }
     });
   }
 
+  // Keywords: prefer AI extracted with real frequencies if present, else use ruleResult
+  let keywordsList: KeywordMatchItem[] = ruleResult.keywords;
+  if (Array.isArray(aiResponse?.keywords) && aiResponse.keywords.length > 0) {
+    keywordsList = aiResponse.keywords.map((k: any) => ({
+      keyword: k.keyword || "",
+      priority: k.priority === "required" || k.priority === "preferred" ? k.priority : "general",
+      status: k.status === "present" ? "present" : "missing",
+      frequencyInJob: typeof k.frequencyInJob === "number" ? k.frequencyInJob : 1,
+      frequencyInCV: typeof k.frequencyInCV === "number" ? k.frequencyInCV : 0
+    }));
+  }
+
   // Gaps with strict anti-hallucination wording
   const gaps: JobGapItem[] = [];
-  if (Array.isArray(aiResponse?.gaps)) {
+  if (Array.isArray(aiResponse?.gaps) && aiResponse.gaps.length > 0) {
     aiResponse.gaps.forEach((g: any, idx: number) => {
       gaps.push({
         id: `gap_${idx}_${Date.now()}`,
-        jobRequirement: g.jobRequirement || "Requirement from job description",
-        cvStatus: g.cvStatus || "No direct evidence found in current CV",
-        recommendation: g.recommendation || "If you genuinely possess this experience, add it to your relevant section. Otherwise, do not fabricate it.",
+        jobRequirement: g.jobRequirement || "Stated job requirement",
+        cvStatus: g.cvStatus || "Not demonstrated in current CV",
+        recommendation: g.recommendation || "If you have authentic experience with this requirement, add it to the relevant section. If not, do not fabricate it.",
         severity: g.severity === "high" || g.severity === "medium" || g.severity === "low" ? g.severity : "medium"
       });
     });
   } else if (missingMap.size > 0) {
-    // Heuristic fallback gap creation
     Array.from(missingMap.values()).slice(0, 3).forEach((ms, idx) => {
       gaps.push({
         id: `gap_auto_${idx}`,
-        jobRequirement: `Proficiency in ${ms.name}`,
-        cvStatus: `Skill "${ms.name}" not listed in CV`,
-        recommendation: `If you have hands-on experience with ${ms.name}, consider adding it to your Skills or relevant Project/Experience bullet. If not, do not add it.`,
+        jobRequirement: `Proficiency with ${ms.name}`,
+        cvStatus: `Skill "${ms.name}" is missing from CV`,
+        recommendation: `If you have authentic experience with ${ms.name}, highlight it in your Skills or Experience section. If not, do not fabricate it.`,
         severity: "medium"
       });
     });
@@ -369,7 +407,7 @@ export function synthesizeJobMatchResult(
 
   // Strengths
   const strengths: JobStrengthItem[] = [];
-  if (Array.isArray(aiResponse?.strengths)) {
+  if (Array.isArray(aiResponse?.strengths) && aiResponse.strengths.length > 0) {
     aiResponse.strengths.forEach((st: any, idx: number) => {
       strengths.push({
         id: `str_${idx}`,
@@ -382,9 +420,9 @@ export function synthesizeJobMatchResult(
     const matchedNames = Array.from(matchingMap.values()).slice(0, 4).map(s => s.name).join(", ");
     strengths.push({
       id: "str_auto_1",
-      title: "Core Skill Match",
-      description: `Your CV directly includes key required skills for this position.`,
-      evidence: `Demonstrated in CV: ${matchedNames}`
+      title: "Matching Technical Skills",
+      description: "Your CV directly demonstrates several required qualifications.",
+      evidence: `Found in CV: ${matchedNames}`
     });
   }
 
@@ -397,10 +435,9 @@ export function synthesizeJobMatchResult(
           id: `ci_${idx}_${Date.now()}`,
           section: ci.section || "Experience",
           itemId: ci.itemId,
-          bulletIndex: ci.bulletIndex,
           originalText: ci.originalText,
           suggestedText: ci.suggestedText,
-          explanation: ci.explanation || "Reworded to align with job description keywords while strictly preserving your authentic facts."
+          explanation: ci.explanation || "Rephrased in active voice to align with job keywords while preserving 100% of candidate facts."
         });
       }
     });
@@ -409,11 +446,12 @@ export function synthesizeJobMatchResult(
   return {
     overallScore,
     matchRating,
-    jobTitle: aiResponse?.detectedJobTitle || undefined,
+    jobTitle: aiResponse?.jobTitle || aiResponse?.detectedJobTitle || undefined,
+    companyName: aiResponse?.companyName || aiResponse?.detectedCompany || undefined,
     categoryScores,
     matchingSkills: Array.from(matchingMap.values()),
     missingSkills: Array.from(missingMap.values()),
-    keywords: ruleResult.keywords,
+    keywords: keywordsList,
     strengths,
     gaps,
     contentImprovements,
