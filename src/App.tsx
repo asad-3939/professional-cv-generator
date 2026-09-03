@@ -42,7 +42,16 @@ const LazyJobMatchModal = lazy(() =>
   import("./components/JobMatchModal").then(m => ({ default: m.JobMatchModal }))
 );
 
-export type AppRoute = "home" | "builder" | "privacy" | "terms";
+// Lazy-load Dedicated Public Standalone Pages
+const LazyATSCheckerPage = lazy(() =>
+  import("./components/ATSCheckerPage").then(m => ({ default: m.ATSCheckerPage }))
+);
+
+const LazyJobMatchPage = lazy(() =>
+  import("./components/JobMatchPage").then(m => ({ default: m.JobMatchPage }))
+);
+
+export type AppRoute = "home" | "builder" | "privacy" | "terms" | "ats-checker" | "job-match";
 
 export default function App() {
   // Client-side route state matching browser URL path
@@ -52,6 +61,8 @@ export default function App() {
       if (p === "/privacy") return "privacy";
       if (p === "/terms") return "terms";
       if (p === "/builder") return "builder";
+      if (p === "/ats-checker") return "ats-checker";
+      if (p === "/job-match") return "job-match";
     }
     return "home";
   });
@@ -66,7 +77,12 @@ export default function App() {
       document.title = "Free AI CV Builder & ATS Resume Checker | ProCVMaker";
     } else if (route === "builder") {
       document.title = "CV Builder Workspace | ProCVMaker";
+    } else if (route === "ats-checker") {
+      document.title = "Free ATS Resume Checker – Test & Improve Resume Score | ProCVMaker";
+    } else if (route === "job-match") {
+      document.title = "Resume Job Match – Compare CV to Job Description | ProCVMaker";
     }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Sync with browser back/forward history navigation
@@ -79,6 +95,10 @@ export default function App() {
         setCurrentRoute("terms");
       } else if (p === "/builder") {
         setCurrentRoute("builder");
+      } else if (p === "/ats-checker") {
+        setCurrentRoute("ats-checker");
+      } else if (p === "/job-match") {
+        setCurrentRoute("job-match");
       } else {
         setCurrentRoute("home");
       }
@@ -441,7 +461,85 @@ export default function App() {
           onOpenAIImport={() => setIsAIAssistantOpen(true)}
           onNavigatePrivacy={() => navigateTo("privacy")}
           onNavigateTerms={() => navigateTo("terms")}
+          onNavigateATSChecker={() => navigateTo("ats-checker")}
+          onNavigateJobMatch={() => navigateTo("job-match")}
         />
+      ) : currentRoute === "ats-checker" ? (
+        <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-xs">Loading ATS Resume Checker...</div>}>
+          <LazyATSCheckerPage
+            cvData={cvData}
+            designConfig={designConfig}
+            cvTitle={activeCvTitle}
+            cvId={activeCvId || undefined}
+            userCVs={cachedUserCVs}
+            currentUser={currentUser}
+            onUpdateCVData={(updated) => {
+              setCvData(updated);
+              setSuccessToast("Updated CV content!");
+            }}
+            onSelectCV={(cvRecord) => {
+              setActiveCvId(cvRecord.id || null);
+              setActiveCvTitle(cvRecord.title);
+              setCvData(cvRecord.data);
+              setDesignConfig(cvRecord.design);
+              setSuccessToast(`Switched to "${cvRecord.title}"!`);
+            }}
+            onStartBuilding={() => navigateTo("builder")}
+            onOpenJobMatch={() => navigateTo("job-match")}
+            onOpenDashboard={() => setIsHistoryModalOpen(true)}
+            onOpenSettings={() => setIsAccountSettingsOpen(true)}
+            onSignIn={() => {
+              setSuccessToast(null);
+              setErrorToast(null);
+              setIsAuthModalOpen(true);
+            }}
+            onSignOut={() => {
+              signOut(auth);
+              setSuccessToast("Signed out successfully!");
+            }}
+            onNavigateHome={() => navigateTo("home")}
+            onNavigatePrivacy={() => navigateTo("privacy")}
+            onNavigateTerms={() => navigateTo("terms")}
+          />
+        </Suspense>
+      ) : currentRoute === "job-match" ? (
+        <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-xs">Loading Resume Job Match...</div>}>
+          <LazyJobMatchPage
+            cvData={cvData}
+            designConfig={designConfig}
+            cvTitle={activeCvTitle}
+            cvId={activeCvId || undefined}
+            userCVs={cachedUserCVs}
+            currentUser={currentUser}
+            onUpdateCVData={(updated) => {
+              setCvData(updated);
+              setSuccessToast("Applied tailored recommendation to CV!");
+            }}
+            onSelectCV={(cvRecord) => {
+              setActiveCvId(cvRecord.id || null);
+              setActiveCvTitle(cvRecord.title);
+              setCvData(cvRecord.data);
+              setDesignConfig(cvRecord.design);
+              setSuccessToast(`Switched to "${cvRecord.title}"!`);
+            }}
+            onStartBuilding={() => navigateTo("builder")}
+            onOpenATSChecker={() => navigateTo("ats-checker")}
+            onOpenDashboard={() => setIsHistoryModalOpen(true)}
+            onOpenSettings={() => setIsAccountSettingsOpen(true)}
+            onSignIn={() => {
+              setSuccessToast(null);
+              setErrorToast(null);
+              setIsAuthModalOpen(true);
+            }}
+            onSignOut={() => {
+              signOut(auth);
+              setSuccessToast("Signed out successfully!");
+            }}
+            onNavigateHome={() => navigateTo("home")}
+            onNavigatePrivacy={() => navigateTo("privacy")}
+            onNavigateTerms={() => navigateTo("terms")}
+          />
+        </Suspense>
       ) : (
         <>
           {/* Primary Top Utilities Header Bar */}
@@ -678,6 +776,28 @@ export default function App() {
               </span>
             </div>
             <div className="flex items-center gap-4">
+              <a 
+                href="/ats-checker"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo("ats-checker");
+                }} 
+                className="hover:text-slate-300 transition cursor-pointer"
+                id="builder_footer_ats_btn"
+              >
+                ATS Checker
+              </a>
+              <a 
+                href="/job-match"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo("job-match");
+                }} 
+                className="hover:text-slate-300 transition cursor-pointer"
+                id="builder_footer_job_match_btn"
+              >
+                Job Match
+              </a>
               <a 
                 href="/privacy"
                 onClick={(e) => {

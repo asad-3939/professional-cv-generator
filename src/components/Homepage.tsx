@@ -17,6 +17,8 @@ interface HomepageProps {
   onOpenAIImport: () => void;
   onNavigatePrivacy?: () => void;
   onNavigateTerms?: () => void;
+  onNavigateATSChecker?: () => void;
+  onNavigateJobMatch?: () => void;
 }
 
 export function Homepage({ 
@@ -28,7 +30,9 @@ export function Homepage({
   onOpenSettings,
   onOpenAIImport,
   onNavigatePrivacy,
-  onNavigateTerms
+  onNavigateTerms,
+  onNavigateATSChecker,
+  onNavigateJobMatch
 }: HomepageProps) {
   const [selectedTemplateTab, setSelectedTemplateTab] = useState<TemplateId>("modern");
 
@@ -104,11 +108,30 @@ export function Homepage({
           </div>
         </div>
 
-        {/* Quick Anchor Links */}
+        {/* Quick Anchor & Page Links */}
         <nav className="hidden lg:flex items-center gap-8 text-xs font-semibold text-slate-400">
           <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
           <a href="#templates" className="hover:text-white transition-colors">Templates</a>
-          <a href="#features" className="hover:text-white transition-colors">Features</a>
+          <a 
+            href="/ats-checker" 
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigateATSChecker?.();
+            }} 
+            className="hover:text-white transition-colors"
+          >
+            ATS Checker
+          </a>
+          <a 
+            href="/job-match" 
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigateJobMatch?.();
+            }} 
+            className="hover:text-white transition-colors"
+          >
+            Job Match
+          </a>
         </nav>
 
         {/* User Account / Primary Action */}
@@ -577,6 +600,39 @@ export function Homepage({
 
           <div className="flex flex-wrap items-center justify-center gap-5 md:gap-6">
             <a
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                onStartBuilding();
+              }}
+              className="text-indigo-400 hover:text-indigo-300 font-semibold transition cursor-pointer text-xs"
+              id="footer_builder_link"
+            >
+              Resume Builder
+            </a>
+            <a
+              href="/ats-checker"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigateATSChecker?.();
+              }}
+              className="text-slate-400 hover:text-slate-200 transition cursor-pointer text-xs"
+              id="footer_ats_link"
+            >
+              Free ATS Resume Checker
+            </a>
+            <a
+              href="/job-match"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigateJobMatch?.();
+              }}
+              className="text-slate-400 hover:text-slate-200 transition cursor-pointer text-xs"
+              id="footer_job_match_link"
+            >
+              Job Match
+            </a>
+            <a
               href="/privacy"
               onClick={(e) => {
                 e.preventDefault();
@@ -597,17 +653,6 @@ export function Homepage({
               id="footer_terms_link"
             >
               Terms of Service
-            </a>
-            <a
-              href="/"
-              onClick={(e) => {
-                e.preventDefault();
-                onStartBuilding();
-              }}
-              className="text-indigo-400 hover:text-indigo-300 font-semibold transition cursor-pointer text-xs"
-              id="footer_builder_link"
-            >
-              Resume Builder
             </a>
             
             <a 

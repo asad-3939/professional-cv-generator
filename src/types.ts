@@ -132,6 +132,8 @@ export interface ATSCategoryScores {
   contactInfo: number; // Weight: 5%
 }
 
+export type AnalysisSource = "gemini-3.8-flash" | "gemini-3.5-flash-lite" | "heuristic";
+
 export interface ATSAnalysisResult {
   overallScore: number; // 0 - 100
   rating: "Exceptional" | "Strong ATS Match" | "Moderate Compatibility" | "Needs Optimization";
@@ -141,6 +143,7 @@ export interface ATSAnalysisResult {
   suggestions: ATSIssue[];
   passedChecks: ATSIssue[];
   analyzedAt: string;
+  analysisSource?: AnalysisSource;
 }
 
 // ==========================================
@@ -213,5 +216,6 @@ export interface JobMatchResult {
   contentImprovements: JobContentImprovement[];
   analyzedAt: string;
   jobDescriptionHash?: string;
+  analysisSource?: AnalysisSource;
 }
 

@@ -668,6 +668,7 @@ export function synthesizeATSAnalysis(
       originalText?: string;
       suggestedText?: string;
     }>;
+    analysisSource?: "gemini-3.8-flash" | "gemini-3.5-flash-lite" | "heuristic";
   }
 ): ATSAnalysisResult {
   // Extract AI Scores or generate fallback heuristic scores if AI was unavailable
@@ -763,6 +764,7 @@ export function synthesizeATSAnalysis(
     importantImprovements,
     suggestions,
     passedChecks,
-    analyzedAt: new Date().toISOString()
+    analyzedAt: new Date().toISOString(),
+    analysisSource: aiResponse?.analysisSource || (aiResponse ? "gemini-3.8-flash" : "heuristic")
   };
 }

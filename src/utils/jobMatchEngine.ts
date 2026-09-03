@@ -455,7 +455,8 @@ export function synthesizeJobMatchResult(
     strengths,
     gaps,
     contentImprovements,
-    analyzedAt: new Date().toISOString()
+    analyzedAt: new Date().toISOString(),
+    analysisSource: aiResponse?.analysisSource || (aiResponse ? "gemini-3.8-flash" : "heuristic")
   };
 }
 

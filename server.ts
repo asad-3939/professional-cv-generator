@@ -162,28 +162,472 @@ const getGeminiClient = () => {
   });
 };
 
-// Resilient helper to execute generation with automatic model fallback for transient spikes
-async function generateContentSafe(ai: GoogleGenAI, params: any) {
-  const primaryModel = params.model || "gemini-3.7-flash";
-  const fallbackModel = primaryModel === "gemini-3.7-flash" ? "gemini-flash-latest" : "gemini-3.7-flash";
-  const modelsToTry = [primaryModel, fallbackModel];
+export type AIModelSource = "gemini-3.8-flash" | "gemini-3.5-flash-lite";
+export type AnalysisSource = AIModelSource | "heuristic";
 
+export interface SafeGenerationResult {
+  response: any;
+  analysisSource: AIModelSource;
+}
+
+// Check for transient server / network errors that qualify for single retry
+function isTransientError(err: any): boolean {
+  const status = err?.status || err?.code || err?.statusCode || (err?.error && (err.error.code || err.error.status));
+  const msg = (err?.message || String(err)).toLowerCase();
+
+  // Permanent errors: do NOT retry (e.g. invalid key, permissions, malformed requests)
+  const isPermanent =
+    status === 400 || status === 401 || status === 403 || status === 404 ||
+    msg.includes("invalid api key") ||
+    msg.includes("api key not valid") ||
+    msg.includes("api_key_invalid") ||
+    msg.includes("permission_denied") ||
+    msg.includes("permissiondenied") ||
+    msg.includes("invalid_argument") ||
+    msg.includes("invalid argument") ||
+    msg.includes("not found") ||
+    msg.includes("unregistered callers");
+
+  if (isPermanent) return false;
+
+  // Transient errors: 429, 500, 502, 503, 504, UNAVAILABLE, RESOURCE_EXHAUSTED, high demand / overloaded
+  const isTransient =
+    status === 429 || status === 500 || status === 502 || status === 503 || status === 504 ||
+    msg.includes("429") ||
+    msg.includes("500") ||
+    msg.includes("502") ||
+    msg.includes("503") ||
+    msg.includes("504") ||
+    msg.includes("unavailable") ||
+    msg.includes("resource_exhausted") ||
+    msg.includes("resourceexhausted") ||
+    msg.includes("high demand") ||
+    msg.includes("overloaded") ||
+    msg.includes("spikes in demand") ||
+    msg.includes("temporarily unavailable") ||
+    msg.includes("timeout") ||
+    msg.includes("econnreset");
+
+  return isTransient;
+}
+
+// Fallback order: Primary gemini-3.8-flash -> Fallback gemini-3.5-flash-lite
+const PRODUCTION_AI_MODELS: AIModelSource[] = [
+  "gemini-3.8-flash",
+  "gemini-3.5-flash-lite"
+];
+
+async function generateContentSafe(ai: GoogleGenAI, params: any): Promise<SafeGenerationResult> {
   let lastError: any = null;
-  for (const model of modelsToTry) {
-    try {
-      const response = await ai.models.generateContent({
-        ...params,
-        model
+
+  for (const model of PRODUCTION_AI_MODELS) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          ...params,
+          model
+        });
+        return { response, analysisSource: model };
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        const transient = isTransientError(err);
+        console.warn(`[AI Engine] Model ${model} attempt ${attempt} notice:`, errMsg);
+
+        // Retry once for transient errors (429, 500, 502, 503, 504, UNAVAILABLE, etc.)
+        if (transient && attempt < 2) {
+          const delay = 650 + Math.floor(Math.random() * 250);
+          await new Promise(res => setTimeout(res, delay));
+          continue;
+        }
+
+        // Do not retry permanent errors, proceed directly to fallback model
+        break;
+      }
+    }
+    // Small delay before trying fallback model
+    await new Promise(res => setTimeout(res, 250));
+  }
+
+  throw lastError;
+}
+
+// Fallback heuristic polisher in case of total AI outage
+function ruleBasedPolishText(text: string): string {
+  const lines = text.split(/\n+/).map(l => l.replace(/^[-*•\d.]+\s*/, "").trim()).filter(Boolean);
+  const verbs = ["Spearheaded", "Architected", "Engineered and delivered", "Optimized", "Streamlined"];
+  const polished = lines.slice(0, 4).map((line, idx) => {
+    let clean = line;
+    clean = clean.replace(/^(responsible for|duties included|worked on|helped with|handled)\s+/i, "");
+    const verb = verbs[idx % verbs.length];
+    clean = clean.charAt(0).toLowerCase() + clean.slice(1);
+    return `- ${verb} ${clean}`;
+  });
+  return polished.join("\n") || "- Executed and delivered core responsibilities ensuring high standard of quality";
+}
+
+// Fallback heuristic summary generator
+function ruleBasedSummary(jobTitle: string, skills: string[] = []): string {
+  const topSkills = skills.slice(0, 4).join(", ");
+  const skillPart = topSkills ? ` with proven expertise in ${topSkills}` : "";
+  return `Accomplished and results-driven ${jobTitle}${skillPart}. Demonstrated track record of leading cross-functional initiatives, optimizing workflows, and delivering high-quality solutions. Committed to applying industry best practices and strategic problem-solving to drive organizational success.`;
+}
+
+// Fallback heuristic ATS audit generator
+function generateHeuristicATSAudit(cv: any) {
+  const findings: any[] = [];
+  let contentScore = 80;
+  let impactScore = 75;
+  let readabilityScore = 85;
+
+  const weakWords = [
+    { phrase: "responsible for", replace: "Managed and spearheaded" },
+    { phrase: "duties included", replace: "Executed core responsibilities including" },
+    { phrase: "worked on", replace: "Developed and delivered" },
+    { phrase: "helped with", replace: "Contributed to and supported" },
+    { phrase: "handled", replace: "Coordinated and oversaw" },
+    { phrase: "hard worker", replace: "results-driven professional" },
+    { phrase: "team player", replace: "collaborative cross-functional contributor" }
+  ];
+
+  // 1. Audit Summary
+  if (!cv.summary || cv.summary.trim().length === 0) {
+    contentScore -= 15;
+    findings.push({
+      category: "contentQuality",
+      severity: "important",
+      section: "Professional Summary",
+      what: "Professional summary is empty or missing.",
+      why: "Recruiters and ATS parsers scan the summary in the first 6 seconds to identify role fit.",
+      how: "Add a 3-4 sentence professional summary highlighting your core expertise and target role."
+    });
+  } else {
+    const summary = cv.summary.trim();
+    if (/\b(I|me|my|myself)\b/i.test(summary)) {
+      readabilityScore -= 8;
+      findings.push({
+        category: "readability",
+        severity: "suggestion",
+        section: "Professional Summary",
+        what: "Summary contains first-person personal pronouns (I, my, me).",
+        why: "Standard executive resume format expects third-person professional voice without personal pronouns.",
+        how: "Rewrite your summary in concise third-person active voice."
       });
-      return response;
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`Gemini model ${model} attempt failed:`, err?.message || err);
-      // Wait a short moment before trying fallback
-      await new Promise(res => setTimeout(res, 500));
+    } else {
+      findings.push({
+        category: "contentQuality",
+        severity: "passed",
+        section: "Professional Summary",
+        what: "Professional summary is written in standard executive tone.",
+        why: "Demonstrates professionalism and high readability.",
+        how: "Keep it updated with your most notable achievements."
+      });
     }
   }
-  throw lastError;
+
+  // 2. Audit Experiences
+  let totalBullets = 0;
+  let bulletsWithMetrics = 0;
+
+  (cv.experience || []).forEach((exp: any) => {
+    if (!exp.description) return;
+    const lines = exp.description.split(/\n+/).map((l: string) => l.trim()).filter(Boolean);
+    totalBullets += lines.length;
+
+    lines.forEach((line: string, bIdx: number) => {
+      // Check for metrics
+      if (/(\d+%|\$\d+|\b\d+\b)/.test(line)) {
+        bulletsWithMetrics++;
+      } else if (findings.length < 12 && lines.length > 1 && bIdx === 0) {
+        impactScore -= 5;
+        findings.push({
+          category: "achievementImpact",
+          severity: "suggestion",
+          section: `Experience → ${exp.position || "Role"}`,
+          itemId: exp.id,
+          bulletIndex: bIdx,
+          what: "Bullet point lacks quantifiable outcomes or metrics.",
+          why: "Hiring managers look for evidence of impact (e.g., latency reduction, revenue growth, team scale).",
+          how: "Add your genuine metrics or percentage improvements if available.",
+          originalText: line,
+          suggestedText: line
+        });
+      }
+
+      // Check for weak phrases
+      for (const w of weakWords) {
+        if (line.toLowerCase().includes(w.phrase)) {
+          contentScore -= 4;
+          const regex = new RegExp(w.phrase, "i");
+          const rewritten = line.replace(regex, w.replace);
+          findings.push({
+            category: "contentQuality",
+            severity: "important",
+            section: `Experience → ${exp.position || "Role"}`,
+            itemId: exp.id,
+            bulletIndex: bIdx,
+            what: `Bullet uses passive phrasing ("${w.phrase}").`,
+            why: "Passive verbs diminish perceived leadership and ownership of results.",
+            how: "Begin with strong action verbs like 'Spearheaded', 'Optimized', or 'Delivered'.",
+            originalText: line,
+            suggestedText: rewritten
+          });
+          break;
+        }
+      }
+    });
+  });
+
+  if (bulletsWithMetrics > 0) {
+    findings.push({
+      category: "achievementImpact",
+      severity: "passed",
+      section: "Work Experience",
+      what: `Quantifiable metrics detected across ${bulletsWithMetrics} bullet points.`,
+      why: "Measurable metrics stand out to recruiters and validate the scope of your contributions.",
+      how: "Continue quantifying outcomes across future projects."
+    });
+  }
+
+  // 3. Skills Check
+  if (!cv.skills || cv.skills.length < 5) {
+    contentScore -= 10;
+    findings.push({
+      category: "contentQuality",
+      severity: "important",
+      section: "Skills",
+      what: "Skills list contains fewer than 5 items.",
+      why: "ATS search algorithms rely heavily on skill keyword matching against target job descriptions.",
+      how: "Add 8-12 core industry and technical skills relevant to your target role."
+    });
+  } else {
+    findings.push({
+      category: "contentQuality",
+      severity: "passed",
+      section: "Skills",
+      what: `Comprehensive skills inventory (${cv.skills.length} skills listed).`,
+      why: "Provides strong keyword density for ATS parsing algorithms.",
+      how: "Ensure top skills align with your target job vacancies."
+    });
+  }
+
+  return {
+    contentQualityScore: Math.max(50, Math.min(98, contentScore)),
+    achievementImpactScore: Math.max(50, Math.min(98, impactScore)),
+    readabilityScore: Math.max(50, Math.min(98, readabilityScore)),
+    findings,
+    analysisSource: "heuristic" as const
+  };
+}
+
+// Fallback heuristic job match generator
+function generateHeuristicJobMatch(cv: any, jobDescription: string) {
+  const jdLower = jobDescription.toLowerCase();
+  const cvSkills = Array.isArray(cv.skills) ? cv.skills : [];
+  
+  const COMMON_TERMS = [
+    "JavaScript", "TypeScript", "React", "Node.js", "Python", "SQL", "HTML", "CSS",
+    "Next.js", "Vue", "Angular", "Express", "PostgreSQL", "MongoDB", "AWS", "Docker",
+    "Kubernetes", "Git", "REST API", "GraphQL", "Agile", "Scrum", "CI/CD", "Jira",
+    "Figma", "Redux", "Tailwind CSS", "Linux", "Cloud", "Analytics", "Project Management"
+  ];
+
+  const matchingSkills: any[] = [];
+  const missingSkills: any[] = [];
+  const keywords: any[] = [];
+
+  const foundInJd = COMMON_TERMS.filter(term => jdLower.includes(term.toLowerCase()));
+  const candidateSkillsLower = new Set(cvSkills.map((s: string) => s.toLowerCase()));
+
+  foundInJd.forEach(term => {
+    const isMatched = candidateSkillsLower.has(term.toLowerCase());
+    const freqInJd = (jdLower.match(new RegExp(term.toLowerCase(), "g")) || []).length;
+    const freqInCV = isMatched ? 1 : 0;
+
+    keywords.push({
+      keyword: term,
+      priority: freqInJd >= 2 ? "required" : "preferred",
+      status: isMatched ? "present" : "missing",
+      frequencyInJob: Math.max(1, freqInJd),
+      frequencyInCV: freqInCV
+    });
+
+    if (isMatched) {
+      matchingSkills.push({
+        name: term,
+        status: "matched",
+        matchType: "exact",
+        foundLocation: "Skills section"
+      });
+    } else {
+      missingSkills.push({
+        name: term,
+        status: "missing",
+        matchType: "none",
+        category: "Technical Skills"
+      });
+    }
+  });
+
+  const totalTerms = foundInJd.length || 1;
+  const matchRatio = matchingSkills.length / totalTerms;
+  const skillsScore = Math.min(95, Math.max(40, Math.round(matchRatio * 100)));
+  const expScore = cv.experience && cv.experience.length > 0 ? 75 : 45;
+  const kwScore = Math.min(95, Math.max(35, Math.round(matchRatio * 90 + 10)));
+  const roleScore = 70;
+  const eduScore = cv.education && cv.education.length > 0 ? 80 : 50;
+
+  const overallScore = Math.round(
+    skillsScore * 0.30 +
+    expScore * 0.25 +
+    kwScore * 0.20 +
+    roleScore * 0.15 +
+    eduScore * 0.10
+  );
+
+  let matchRating = "Moderate Match";
+  if (overallScore >= 80) matchRating = "Strong Match";
+  else if (overallScore >= 60) matchRating = "Moderate Match";
+  else matchRating = "Low Match";
+
+  return {
+    overallScore,
+    matchRating,
+    categoryScores: {
+      skillsMatch: skillsScore,
+      experienceAlignment: expScore,
+      keywordCoverage: kwScore,
+      roleRelevance: roleScore,
+      educationAlignment: eduScore
+    },
+    matchingSkills,
+    missingSkills,
+    keywords,
+    strengths: matchingSkills.slice(0, 3).map(m => ({
+      title: `${m.name} Competency`,
+      description: `Target vacancy seeks ${m.name}, which is explicitly featured in your resume.`,
+      evidence: `Demonstrated in your CV skills: "${m.name}".`
+    })),
+    gaps: missingSkills.slice(0, 4).map(m => ({
+      jobRequirement: `${m.name} proficiency`,
+      cvStatus: "Not mentioned in CV",
+      recommendation: `If you have genuine experience with ${m.name}, highlight it in your experience or skills. If not, do not fabricate it.`,
+      severity: "medium"
+    })),
+    contentImprovements: [],
+    analyzedAt: new Date().toISOString(),
+    analysisSource: "heuristic" as const
+  };
+}
+
+// Fallback heuristic parser for CV Import if AI services are unavailable
+function ruleBasedParseResume(rawText: string) {
+  const lines = (rawText || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  const emailMatch = (rawText || "").match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
+  const email = emailMatch ? emailMatch[0] : "";
+
+  const phoneMatch = (rawText || "").match(/(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/);
+  const phone = phoneMatch ? phoneMatch[0] : "";
+
+  const linkedinMatch = (rawText || "").match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[A-Za-z0-9_-]+/i);
+  const linkedin = linkedinMatch ? linkedinMatch[0] : "";
+
+  const githubMatch = (rawText || "").match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[A-Za-z0-9_-]+/i);
+  const github = githubMatch ? githubMatch[0] : "";
+
+  let fullName = "Candidate";
+  if (lines.length > 0) {
+    const candidateLine = lines[0].replace(/resume|curriculum vitae|cv/gi, "").trim();
+    if (candidateLine && candidateLine.length < 50 && !candidateLine.includes("@") && !candidateLine.includes("http")) {
+      fullName = candidateLine;
+    }
+  }
+
+  let jobTitle = "Professional";
+  if (lines.length > 1 && lines[1].length < 60 && !lines[1].includes("@") && !lines[1].includes("http")) {
+    jobTitle = lines[1];
+  }
+
+  const commonKeywords = [
+    "JavaScript", "TypeScript", "React", "Node.js", "Python", "Java", "C++", "SQL",
+    "PostgreSQL", "MongoDB", "AWS", "Docker", "Git", "Agile", "Leadership", "Management",
+    "Communication", "Problem Solving"
+  ];
+  const detectedSkills = commonKeywords.filter(kw =>
+    new RegExp(`\\b${kw}\\b`, "i").test(rawText || "")
+  );
+
+  const generateId = () => Math.random().toString(36).substring(2, 11);
+
+  return {
+    personal: {
+      fullName,
+      jobTitle,
+      email,
+      phone,
+      location: "",
+      linkedin,
+      github,
+      website: ""
+    },
+    summary: lines.slice(2, 6).join(" ").substring(0, 350) || "Experienced professional with proven track record of delivering high-quality results and collaborating across multidisciplinary teams.",
+    experience: [
+      {
+        id: generateId(),
+        company: "Professional Experience",
+        position: jobTitle,
+        location: "",
+        startDate: "2021",
+        endDate: "Present",
+        current: true,
+        description: lines.slice(3, 10).map(l => `- ${l}`).join("\n") || "- Executed key project milestones and responsibilities ensuring high standards of quality."
+      }
+    ],
+    education: [
+      {
+        id: generateId(),
+        school: "University / Institution",
+        degree: "Bachelor's Degree",
+        field: "Relevant Field of Study",
+        location: "",
+        startDate: "",
+        endDate: "",
+        current: false,
+        notes: ""
+      }
+    ],
+    skills: detectedSkills.length > 0 ? detectedSkills : ["Project Management", "Team Collaboration", "Problem Solving"],
+    projects: [],
+    certifications: [],
+    languages: []
+  };
+}
+
+// Fallback heuristic for legacy ATS endpoint
+function generateHeuristicLegacyATS(cvData: any) {
+  const audit = generateHeuristicATSAudit(cvData);
+  return {
+    score: audit.contentQualityScore,
+    rating: audit.contentQualityScore >= 80 ? "Strong Match" : audit.contentQualityScore >= 60 ? "Moderate Match" : "Needs Optimization",
+    summary: "Evaluation calculated based on deterministic ATS compliance rules including action verbs, section completeness, and readability.",
+    metrics: {
+      skillsAlignment: audit.contentQualityScore,
+      readabilityFormatting: audit.readabilityScore,
+      impactQuantification: audit.achievementImpactScore
+    },
+    skillsMatch: {
+      matched: cvData?.skills && Array.isArray(cvData.skills) ? cvData.skills.slice(0, 6) : [],
+      missing: ["Strategic Alignment", "Metrics Quantification"]
+    },
+    actionableSteps: audit.findings.slice(0, 4).map(f => ({
+      section: f.section,
+      finding: f.what,
+      recommendation: f.how,
+      impact: f.severity === "critical" ? "High" : f.severity === "important" ? "Medium" : "Low"
+    })),
+    analysisSource: "heuristic" as const
+  };
 }
 
 // API Endpoints
@@ -200,8 +644,9 @@ app.post("/api/cv/polish", async (req, res) => {
       return;
     }
 
-    const ai = getGeminiClient();
-    const prompt = `You are an expert executive resume writer and career coach.
+    try {
+      const ai = getGeminiClient();
+      const prompt = `You are an expert executive resume writer and career coach.
 Your job is to rewrite the raw work experience bullet points or text into professional, high-impact, results-oriented, active bullet points.
 
 Guidelines:
@@ -218,19 +663,29 @@ Job Details:
 Raw Text:
 "${text}"`;
 
-    const response = await generateContentSafe(ai, {
-      model: "gemini-3.7-flash",
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-      },
-    });
+      const { response, analysisSource } = await generateContentSafe(ai, {
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          temperature: 0.7,
+        },
+      });
 
-    const polishedText = response.text || "";
-    res.status(200).json({ polishedText: polishedText.trim() });
+      const polishedText = response?.text || "";
+      if (polishedText.trim()) {
+        res.status(200).json({ polishedText: polishedText.trim(), analysisSource });
+        return;
+      }
+    } catch (aiErr) {
+      console.warn("Gemini polish unavailable, using rule-based bullet polisher:", aiErr);
+    }
+
+    // Fallback if AI unavailable
+    const fallbackText = ruleBasedPolishText(text);
+    res.status(200).json({ polishedText: fallbackText, analysisSource: "heuristic" });
   } catch (error: any) {
     console.error("Error in /api/cv/polish:", error);
-    res.status(500).json({ error: error.message || "Failed to polish text using Gemini." });
+    res.status(200).json({ polishedText: ruleBasedPolishText(req.body?.text || ""), analysisSource: "heuristic" });
   }
 });
 
@@ -243,8 +698,9 @@ app.post("/api/cv/summary", async (req, res) => {
       return;
     }
 
-    const ai = getGeminiClient();
-    const prompt = `You are a certified professional resume writer. Write a compelling, high-level Professional Summary (sometimes called a resume profile or summary of qualifications) for someone targeting a "${jobTitle}" role.
+    try {
+      const ai = getGeminiClient();
+      const prompt = `You are a certified professional resume writer. Write a compelling, high-level Professional Summary (sometimes called a resume profile or summary of qualifications) for someone targeting a "${jobTitle}" role.
 
 Details to incorporate if present:
 - Skills: ${skills && Array.isArray(skills) ? skills.join(", ") : "relevant skills"}
@@ -257,24 +713,48 @@ Guidelines:
 - Do NOT use pronouns like "I", "me", "my" (keep it in third-person professional style, e.g., "Result-oriented software engineer with 5+ years of experience...").
 - Return ONLY the summary text block. Do not include headings, notes, introductory statements, or chat filler.`;
 
-    const response = await generateContentSafe(ai, {
-      model: "gemini-3.7-flash",
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-      },
-    });
+      const { response, analysisSource } = await generateContentSafe(ai, {
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          temperature: 0.7,
+        },
+      });
 
-    const summary = response.text || "";
-    res.status(200).json({ summary: summary.trim() });
+      const summary = response?.text || "";
+      if (summary.trim()) {
+        res.status(200).json({ summary: summary.trim(), analysisSource });
+        return;
+      }
+    } catch (aiErr) {
+      console.warn("Gemini summary unavailable, using rule-based summary generator:", aiErr);
+    }
+
+    // Fallback if AI is unavailable
+    const fallbackSummary = ruleBasedSummary(jobTitle, skills);
+    res.status(200).json({ summary: fallbackSummary, analysisSource: "heuristic" });
   } catch (error: any) {
     console.error("Error in /api/cv/summary:", error);
-    res.status(500).json({ error: error.message || "Failed to generate professional summary." });
+    res.status(200).json({ summary: ruleBasedSummary(req.body?.jobTitle || "Professional", req.body?.skills || []), analysisSource: "heuristic" });
   }
 });
 
 // 3. Recommended Skills and Credentials by Job Title
 app.post("/api/cv/suggest-skills", async (req, res) => {
+  const fallbackSkills = [
+    "Project Management",
+    "Team Collaboration",
+    "Problem Solving",
+    "Analytical Thinking",
+    "Strategic Planning",
+    "Process Optimization"
+  ];
+  const fallbackCerts = [
+    "Project Management Professional (PMP)",
+    "Certified ScrumMaster (CSM)",
+    "AWS Certified Cloud Practitioner"
+  ];
+
   try {
     const { jobTitle } = req.body;
     if (!jobTitle) {
@@ -282,66 +762,62 @@ app.post("/api/cv/suggest-skills", async (req, res) => {
       return;
     }
 
-    const ai = getGeminiClient();
-    const prompt = `Provide 10-12 highly relevant and popular tech skills, soft skills, or tools for a professional seeking a "${jobTitle}" role, as well as 3 popular industry certifications.
+    try {
+      const ai = getGeminiClient();
+      const prompt = `Provide 10-12 highly relevant and popular tech skills, soft skills, or tools for a professional seeking a "${jobTitle}" role, as well as 3 popular industry certifications.
 Format the output as a clean JSON objects list.`;
 
-    const response = await generateContentSafe(ai, {
-      model: "gemini-3.7-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            skills: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "List of 10-12 professional skills and technologies relevant to this job title."
+      const { response, analysisSource } = await generateContentSafe(ai, {
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              skills: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "List of 10-12 professional skills and technologies relevant to this job title."
+              },
+              certifications: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "List of 3 useful certifications/credentials for this job."
+              }
             },
-            certifications: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "List of 3 useful certifications/credentials for this job."
-            }
-          },
-          required: ["skills", "certifications"]
+            required: ["skills", "certifications"]
+          }
         }
-      }
-    });
-
-    let resultText = response.text || "{}";
-    // Strip markdown code blocks if the model wrapped the JSON
-    if (resultText.includes("```")) {
-      resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
-    }
-    resultText = resultText.trim();
-
-    try {
-      const data = JSON.parse(resultText);
-      res.status(200).json(data);
-    } catch (parseError) {
-      console.error("Failed to parse Gemini response for suggestions. Raw response:", resultText, parseError);
-      // Return a safe and clean fallback to resolve gracefully and never hang
-      res.status(200).json({
-        skills: [
-          "Project Management",
-          "Team Collaboration",
-          "Problem Solving",
-          "Analytical Thinking",
-          "Strategic Planning",
-          "Process Optimization"
-        ],
-        certifications: [
-          "Project Management Professional (PMP)",
-          "Certified ScrumMaster (CSM)",
-          "AWS Certified Cloud Practitioner"
-        ]
       });
+
+      let resultText = response?.text || "{}";
+      if (resultText.includes("```")) {
+        resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
+      }
+      resultText = resultText.trim();
+
+      const data = JSON.parse(resultText);
+      if (data.skills && Array.isArray(data.skills)) {
+        res.status(200).json({ ...data, analysisSource });
+        return;
+      }
+    } catch (aiErr) {
+      console.warn("Gemini suggest-skills notice, returning safe recommendation list:", aiErr);
     }
+
+    res.status(200).json({
+      skills: fallbackSkills,
+      certifications: fallbackCerts,
+      analysisSource: "heuristic"
+    });
   } catch (error: any) {
     console.error("Error in /api/cv/suggest-skills:", error);
-    res.status(500).json({ error: error.message || "Failed to suggest skills." });
+    res.status(200).json({
+      skills: fallbackSkills,
+      certifications: fallbackCerts,
+      analysisSource: "heuristic"
+    });
   }
 });
 
@@ -384,11 +860,13 @@ Be diligent in extracting:
       });
     }
 
-    const response = await generateContentSafe(ai, {
-      model: "gemini-3.7-flash",
-      contents: { parts },
-      config: {
-        responseMimeType: "application/json",
+    let safeResult: any = null;
+    try {
+      safeResult = await generateContentSafe(ai, {
+        model: "gemini-3.8-flash",
+        contents: { parts },
+        config: {
+          responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -485,8 +963,15 @@ Be diligent in extracting:
         }
       }
     });
+    } catch (aiErr) {
+      console.warn("Gemini import notice, using rule-based resume parser fallback:", aiErr);
+      const fallbackParsed = ruleBasedParseResume(text || "");
+      res.status(200).json({ cvData: fallbackParsed, analysisSource: "heuristic" });
+      return;
+    }
 
-    let resultText = response.text || "{}";
+    const { response, analysisSource } = safeResult;
+    let resultText = response?.text || "{}";
     if (resultText.includes("```")) {
       resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
     }
@@ -547,14 +1032,16 @@ Be diligent in extracting:
         }));
       }
 
-      res.status(200).json({ cvData: parsedData });
+      res.status(200).json({ cvData: parsedData, analysisSource });
     } catch (parseError) {
-      console.error("Failed to parse parsed CV JSON:", resultText, parseError);
-      res.status(500).json({ error: "Failed to assemble structured resume from Gemini output." });
+      console.error("Failed to parse parsed CV JSON, using rule-based parser:", resultText, parseError);
+      const fallbackParsed = ruleBasedParseResume(text || "");
+      res.status(200).json({ cvData: fallbackParsed, analysisSource: "heuristic" });
     }
   } catch (error: any) {
-    console.error("Error in /api/cv/import:", error);
-    res.status(500).json({ error: error.message || "Failed to import resume." });
+    console.error("Error in /api/cv/import, using rule-based parser:", error);
+    const fallbackParsed = ruleBasedParseResume(req.body?.text || "");
+    res.status(200).json({ cvData: fallbackParsed, analysisSource: "heuristic" });
   }
 });
 
@@ -654,43 +1141,52 @@ For each finding, provide:
 - originalText: The exact text from the resume if suggesting an improvement
 - suggestedText: A safe, fact-preserving rewrite in active voice (only if originalText was provided)`;
 
-    const response = await generateContentSafe(ai, {
-      model: "gemini-3.7-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            contentQualityScore: { type: Type.INTEGER, description: "Content quality and relevance score 0-100" },
-            achievementImpactScore: { type: Type.INTEGER, description: "Achievement and outcome impact score 0-100" },
-            readabilityScore: { type: Type.INTEGER, description: "Readability, tone, and brevity score 0-100" },
-            findings: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  category: { type: Type.STRING, enum: ["contentQuality", "achievementImpact", "readability"] },
-                  severity: { type: Type.STRING, enum: ["critical", "important", "suggestion", "passed"] },
-                  section: { type: Type.STRING },
-                  itemId: { type: Type.STRING },
-                  bulletIndex: { type: Type.INTEGER },
-                  what: { type: Type.STRING },
-                  why: { type: Type.STRING },
-                  how: { type: Type.STRING },
-                  originalText: { type: Type.STRING },
-                  suggestedText: { type: Type.STRING }
-                },
-                required: ["category", "severity", "section", "what", "why", "how"]
+    let safeResult: any = null;
+    try {
+      safeResult = await generateContentSafe(ai, {
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              contentQualityScore: { type: Type.INTEGER, description: "Content quality and relevance score 0-100" },
+              achievementImpactScore: { type: Type.INTEGER, description: "Achievement and outcome impact score 0-100" },
+              readabilityScore: { type: Type.INTEGER, description: "Readability, tone, and brevity score 0-100" },
+              findings: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING, enum: ["contentQuality", "achievementImpact", "readability"] },
+                    severity: { type: Type.STRING, enum: ["critical", "important", "suggestion", "passed"] },
+                    section: { type: Type.STRING },
+                    itemId: { type: Type.STRING },
+                    bulletIndex: { type: Type.INTEGER },
+                    what: { type: Type.STRING },
+                    why: { type: Type.STRING },
+                    how: { type: Type.STRING },
+                    originalText: { type: Type.STRING },
+                    suggestedText: { type: Type.STRING }
+                  },
+                  required: ["category", "severity", "section", "what", "why", "how"]
+                }
               }
-            }
-          },
-          required: ["contentQualityScore", "achievementImpactScore", "readabilityScore", "findings"]
+            },
+            required: ["contentQualityScore", "achievementImpactScore", "readabilityScore", "findings"]
+          }
         }
-      }
-    });
+      });
+    } catch (aiErr) {
+      console.warn("Gemini ATS audit notice, falling back to deterministic analyzer:", aiErr);
+      const fallbackAudit = generateHeuristicATSAudit(sanitizedCV);
+      res.status(200).json(fallbackAudit);
+      return;
+    }
 
-    let resultText = response.text || "{}";
+    const { response, analysisSource } = safeResult;
+    let resultText = response?.text || "{}";
     if (resultText.includes("```")) {
       resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
     }
@@ -698,14 +1194,16 @@ For each finding, provide:
 
     try {
       const parsedAudit = JSON.parse(resultText);
-      res.status(200).json(parsedAudit);
+      res.status(200).json({ ...parsedAudit, analysisSource });
     } catch (parseError) {
-      console.error("Failed to parse ATS Audit JSON response:", resultText, parseError);
-      res.status(500).json({ error: "Failed to assemble structured ATS audit from AI output." });
+      console.error("Failed to parse ATS Audit JSON response, using deterministic fallback:", resultText, parseError);
+      const fallbackAudit = generateHeuristicATSAudit(sanitizedCV);
+      res.status(200).json(fallbackAudit);
     }
   } catch (error: any) {
     console.error("Error in /api/cv/ats-analyze:", error);
-    res.status(500).json({ error: error.message || "Failed to run ATS analysis." });
+    const fallbackAudit = generateHeuristicATSAudit(req.body?.cvData || {});
+    res.status(200).json(fallbackAudit);
   }
 });
 
@@ -811,8 +1309,10 @@ Perform the following:
    - roleRelevanceScore (Weight 15%): based on job title and career trajectory match
    - educationAlignmentScore (Weight 10%): based on degree, field, or certification requirements`;
 
-    const response = await generateContentSafe(ai, {
-      model: "gemini-3.7-flash",
+    let safeResult: any = null;
+    try {
+      safeResult = await generateContentSafe(ai, {
+      model: "gemini-3.8-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -920,8 +1420,15 @@ Perform the following:
         }
       }
     });
+    } catch (aiErr) {
+      console.warn("Gemini job match notice, falling back to deterministic analyzer:", aiErr);
+      const fallbackResult = generateHeuristicJobMatch(sanitizedCV, jobDescription);
+      res.status(200).json(fallbackResult);
+      return;
+    }
 
-    let resultText = response.text || "{}";
+    const { response, analysisSource } = safeResult;
+    let resultText = response?.text || "{}";
     if (resultText.includes("```")) {
       resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
     }
@@ -976,17 +1483,20 @@ Perform the following:
         strengths: Array.isArray(parsedMatch.strengths) ? parsedMatch.strengths : [],
         gaps: Array.isArray(parsedMatch.gaps) ? parsedMatch.gaps : [],
         contentImprovements: Array.isArray(parsedMatch.contentImprovements) ? parsedMatch.contentImprovements : [],
-        analyzedAt: new Date().toISOString()
+        analyzedAt: new Date().toISOString(),
+        analysisSource
       };
 
       res.status(200).json(formattedResult);
     } catch (parseError) {
-      console.error("Failed to parse Job Match JSON response:", resultText, parseError);
-      res.status(500).json({ error: "Failed to assemble structured Job Match analysis from AI output." });
+      console.error("Failed to parse Job Match JSON response, using deterministic fallback:", resultText, parseError);
+      const fallbackResult = generateHeuristicJobMatch(sanitizedCV, jobDescription);
+      res.status(200).json(fallbackResult);
     }
   } catch (error: any) {
-    console.error("Error in /api/cv/job-match:", error);
-    res.status(500).json({ error: error.message || "Failed to run Job Match analysis." });
+    console.error("Error in /api/cv/job-match notice, using deterministic engine:", error);
+    const fallbackResult = generateHeuristicJobMatch(req.body?.cvData || {}, req.body?.jobDescription || "");
+    res.status(200).json(fallbackResult);
   }
 });
 
@@ -1015,55 +1525,64 @@ ${JSON.stringify(cvData, null, 2)}
 
 Return your analysis strictly in a clean JSON format matching the schema requested.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            score: { type: Type.INTEGER, description: "Overall compatibility/match score out of 100" },
-            rating: { type: Type.STRING, description: "Match description, e.g. 'Strong Match', 'Moderate Match', 'Needs Optimization'" },
-            summary: { type: Type.STRING, description: "High-level summary of the analysis and readiness" },
-            metrics: {
-              type: Type.OBJECT,
-              properties: {
-                skillsAlignment: { type: Type.INTEGER, description: "Skills and keywords match score from 0-100" },
-                readabilityFormatting: { type: Type.INTEGER, description: "Readability, layout, and scanning score from 0-100" },
-                impactQuantification: { type: Type.INTEGER, description: "Impact, accomplishments, and metric quantification score from 0-100" }
-              },
-              required: ["skillsAlignment", "readabilityFormatting", "impactQuantification"]
-            },
-            skillsMatch: {
-              type: Type.OBJECT,
-              properties: {
-                matched: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of relevant keywords and skills found in the resume" },
-                missing: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Important keywords and skills from the job/industry that are missing" }
-              },
-              required: ["matched", "missing"]
-            },
-            actionableSteps: {
-              type: Type.ARRAY,
-              items: {
+    let safeResult: any = null;
+    try {
+      safeResult = await generateContentSafe(ai, {
+        model: "gemini-3.8-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              score: { type: Type.INTEGER, description: "Overall compatibility/match score out of 100" },
+              rating: { type: Type.STRING, description: "Match description, e.g. 'Strong Match', 'Moderate Match', 'Needs Optimization'" },
+              summary: { type: Type.STRING, description: "High-level summary of the analysis and readiness" },
+              metrics: {
                 type: Type.OBJECT,
                 properties: {
-                  section: { type: Type.STRING, description: "The resume section, e.g., 'Summary', 'Experience', 'Skills', 'Projects'" },
-                  finding: { type: Type.STRING, description: "What is currently lacking or could be improved" },
-                  recommendation: { type: Type.STRING, description: "Exact actionable recommendation" },
-                  impact: { type: Type.STRING, description: "Impact level of this change: 'High', 'Medium', or 'Low'" }
+                  skillsAlignment: { type: Type.INTEGER, description: "Skills and keywords match score from 0-100" },
+                  readabilityFormatting: { type: Type.INTEGER, description: "Readability, layout, and scanning score from 0-100" },
+                  impactQuantification: { type: Type.INTEGER, description: "Impact, accomplishments, and metric quantification score from 0-100" }
                 },
-                required: ["section", "finding", "recommendation", "impact"]
+                required: ["skillsAlignment", "readabilityFormatting", "impactQuantification"]
               },
-              description: "Actionable concrete steps to optimize this CV"
-            }
-          },
-          required: ["score", "rating", "summary", "metrics", "skillsMatch", "actionableSteps"]
+              skillsMatch: {
+                type: Type.OBJECT,
+                properties: {
+                  matched: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of relevant keywords and skills found in the resume" },
+                  missing: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Important keywords and skills from the job/industry that are missing" }
+                },
+                required: ["matched", "missing"]
+              },
+              actionableSteps: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    section: { type: Type.STRING, description: "The resume section, e.g., 'Summary', 'Experience', 'Skills', 'Projects'" },
+                    finding: { type: Type.STRING, description: "What is currently lacking or could be improved" },
+                    recommendation: { type: Type.STRING, description: "Exact actionable recommendation" },
+                    impact: { type: Type.STRING, description: "Impact level of this change: 'High', 'Medium', or 'Low'" }
+                  },
+                  required: ["section", "finding", "recommendation", "impact"]
+                },
+                description: "Actionable concrete steps to optimize this CV"
+              }
+            },
+            required: ["score", "rating", "summary", "metrics", "skillsMatch", "actionableSteps"]
+          }
         }
-      }
-    });
+      });
+    } catch (aiErr) {
+      console.warn("Gemini legacy ATS notice, using deterministic fallback:", aiErr);
+      const fallbackAudit = generateHeuristicLegacyATS(cvData);
+      res.status(200).json(fallbackAudit);
+      return;
+    }
 
-    let resultText = response.text || "{}";
+    const { response, analysisSource } = safeResult;
+    let resultText = response?.text || "{}";
     if (resultText.includes("```")) {
       resultText = resultText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "");
     }
@@ -1071,14 +1590,16 @@ Return your analysis strictly in a clean JSON format matching the schema request
 
     try {
       const parsedAudit = JSON.parse(resultText);
-      res.status(200).json(parsedAudit);
+      res.status(200).json({ ...parsedAudit, analysisSource });
     } catch (parseError) {
-      console.error("Failed to parse ATS Audit JSON response:", resultText, parseError);
-      res.status(500).json({ error: "Failed to assemble structured ATS audit from Gemini output." });
+      console.error("Failed to parse ATS Audit JSON response, using deterministic fallback:", resultText, parseError);
+      const fallbackAudit = generateHeuristicLegacyATS(cvData);
+      res.status(200).json(fallbackAudit);
     }
   } catch (error: any) {
-    console.error("Error in /api/cv/ats:", error);
-    res.status(500).json({ error: error.message || "Failed to run ATS audit." });
+    console.error("Error in /api/cv/ats, using deterministic fallback:", error);
+    const fallbackAudit = generateHeuristicLegacyATS(req.body?.cvData || {});
+    res.status(200).json(fallbackAudit);
   }
 });
 
