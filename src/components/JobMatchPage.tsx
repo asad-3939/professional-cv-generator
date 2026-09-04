@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { 
   Target, CheckCircle2, AlertTriangle, ArrowRight, 
   Sparkles, FileText, ChevronRight, HelpCircle, Layers, 
@@ -6,8 +6,9 @@ import {
 } from "lucide-react";
 import { CVData, CVRecord, DesignConfig } from "../types";
 import { JobMatchView } from "./jobmatch/JobMatchView";
-import { CVSelectorBar } from "./common/CVSelectorBar";
+import { ResumeUpload } from "./common/ResumeUpload";
 import { UserDropdown } from "./UserDropdown";
+import { Header } from "./Header";
 
 export interface JobMatchPageProps {
   cvData: CVData;
@@ -20,6 +21,7 @@ export interface JobMatchPageProps {
   onSelectCV: (cvRecord: { data: CVData; design: DesignConfig; title: string; id?: string }) => void;
   onStartBuilding: () => void;
   onOpenATSChecker: () => void;
+  onNavigateTemplates?: () => void;
   onOpenDashboard?: () => void;
   onOpenSettings?: () => void;
   onSignIn: () => void;
@@ -40,6 +42,7 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
   onSelectCV,
   onStartBuilding,
   onOpenATSChecker,
+  onNavigateTemplates,
   onOpenDashboard,
   onOpenSettings,
   onSignIn,
@@ -48,6 +51,8 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
   onNavigatePrivacy,
   onNavigateTerms
 }) => {
+  const [matchKey, setMatchKey] = useState<number>(0);
+
   // Sync page SEO metadata on mount
   useEffect(() => {
     document.title = "Resume Job Match – Compare CV to Job Description | ProCVMaker";
@@ -86,165 +91,128 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
       design: designConfig,
       title: title
     });
+    setMatchKey(prev => prev + 1);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-teal-500 selection:text-slate-950">
       
       {/* 1. Header Navigation */}
-      <header className="h-16 md:h-20 border-b border-slate-850 px-4 md:px-12 flex items-center justify-between sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onNavigateHome}
-            className="flex items-center gap-3 text-left cursor-pointer group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 via-emerald-500 to-indigo-600 flex items-center justify-center font-black text-white text-md shadow-xl shadow-teal-500/15 shrink-0 group-hover:scale-105 transition-transform">
-              AI
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-white tracking-tight">ProCVMaker</span>
-              </div>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">AI CV Builder &amp; ATS Resume Checker</p>
-            </div>
-          </button>
-        </div>
+      <Header
+        currentRoute="job-match"
+        currentUser={currentUser}
+        onNavigateHome={onNavigateHome}
+        onNavigateBuilder={onStartBuilding}
+        onNavigateATSChecker={onOpenATSChecker}
+        onNavigateJobMatch={() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onNavigateTemplates={onNavigateTemplates || (() => {
+          onNavigateHome();
+          setTimeout(() => {
+            document.getElementById("templates")?.scrollIntoView({ behavior: "smooth" });
+          }, 150);
+        })}
+        onOpenDashboard={onOpenDashboard}
+        onOpenSettings={onOpenSettings}
+        onSignIn={onSignIn}
+        onSignOut={onSignOut}
+        onNavigatePrivacy={onNavigatePrivacy}
+        onNavigateTerms={onNavigateTerms}
+        primaryCtaLabel="Open CV Editor"
+        onPrimaryCta={onStartBuilding}
+      />
 
-        {/* Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-8 text-xs font-semibold text-slate-400">
-          <button 
-            onClick={onStartBuilding}
-            className="hover:text-white transition-colors cursor-pointer"
-          >
-            Resume Builder
-          </button>
-          <button 
-            onClick={onOpenATSChecker}
-            className="hover:text-white transition-colors cursor-pointer"
-          >
-            ATS Checker
-          </button>
-          <span className="text-teal-400 font-bold border-b border-teal-400 pb-0.5">
-            Job Match
-          </span>
-        </nav>
-
-        {/* User Account / Primary Action */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          {currentUser ? (
-            <UserDropdown
-              currentUser={currentUser}
-              onOpenDashboard={onOpenDashboard || onStartBuilding}
-              onOpenSettings={onOpenSettings || onOpenDashboard || onStartBuilding}
-              onSignOut={onSignOut}
-              onNavigatePrivacy={onNavigatePrivacy}
-              onNavigateTerms={onNavigateTerms}
-            />
-          ) : (
-            <button
-              onClick={onSignIn}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-slate-300 hover:text-white hover:bg-slate-900 rounded-xl text-xs font-semibold transition cursor-pointer border border-transparent hover:border-slate-800"
-              id="job_match_page_signin_btn"
-            >
-              <LogIn className="w-3.5 h-3.5 text-slate-400" />
-              <span>Sign In</span>
-            </button>
-          )}
-
-          <button
-            onClick={onStartBuilding}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-xs font-bold transition shadow-sm hover:shadow-teal-500/20 cursor-pointer"
-            id="job_match_page_top_cta_btn"
-          >
-            <span>Open CV Editor</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </header>
-
-      {/* 2. Hero Section */}
-      <section className="relative px-4 md:px-12 pt-10 md:pt-16 pb-8 max-w-6xl mx-auto w-full text-center">
+      {/* 2. Tool-First Hero Header */}
+      <section className="relative px-4 md:px-12 pt-10 md:pt-14 pb-6 max-w-5xl mx-auto w-full text-center">
         
         {/* Trust Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-5 shadow-sm">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-4 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-          <span>Semantic Keyword Alignment &bull; Gap Detection &bull; Zero Hallucination Policy</span>
+          <span>Semantic Keyword Alignment &bull; Gap Detection &bull; Zero Hallucinations</span>
         </div>
 
         {/* Main H1 */}
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight max-w-3xl mx-auto">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight max-w-3xl mx-auto">
           Resume Job Match
         </h1>
 
-        <p className="mt-4 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-3 text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
           Compare your resume directly against any job description. Instantly identify matching qualifications, discover critical missing skills, and tailor your bullet points to fit the role without inventing facts.
         </p>
 
-        {/* Feature Highlights Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8 max-w-4xl mx-auto text-left">
-          <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-1">
-            <div className="flex items-center gap-1.5 text-teal-400 text-xs font-bold">
-              <Target className="w-4 h-4" />
-              <span>Exact &amp; Semantic Skills</span>
+        {/* 3-Step Process Flow Indicator */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-6 max-w-2xl mx-auto text-left">
+          <div className="p-2.5 sm:p-3 bg-slate-900/80 border border-slate-800 rounded-xl flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 font-bold text-xs flex items-center justify-center shrink-0">
+              1
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-white truncate">Upload Resume</p>
+              <p className="text-[10px] text-slate-400 hidden sm:block">File or My CVs</p>
             </div>
-            <p className="text-[11px] text-slate-400 leading-snug">
-              Matches both explicit technical keywords and natural semantic equivalencies.
-            </p>
           </div>
 
-          <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-1">
-            <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold">
-              <AlertTriangle className="w-4 h-4" />
-              <span>Transparent Gap Analysis</span>
+          <div className="p-2.5 sm:p-3 bg-slate-900/80 border border-slate-800 rounded-xl flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 font-bold text-xs flex items-center justify-center shrink-0">
+              2
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-white truncate">Paste Job Spec</p>
+              <p className="text-[10px] text-slate-400 hidden sm:block">Target Vacancy</p>
             </div>
-            <p className="text-[11px] text-slate-400 leading-snug">
-              Pinpoints unmentioned job requirements and advises whether to add them.
-            </p>
           </div>
 
-          <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-1">
-            <div className="flex items-center gap-1.5 text-indigo-400 text-xs font-bold">
-              <BookOpen className="w-4 h-4" />
-              <span>Priority Keywords</span>
+          <div className="p-2.5 sm:p-3 bg-slate-900/80 border border-slate-800 rounded-xl flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 font-bold text-xs flex items-center justify-center shrink-0">
+              3
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-white truncate">Check Match</p>
+              <p className="text-[10px] text-slate-400 hidden sm:block">Score &amp; Gaps</p>
             </div>
-            <p className="text-[11px] text-slate-400 leading-snug">
-              Categorizes job terms into Required vs Preferred with exact frequency counts.
-            </p>
-          </div>
-
-          <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-1">
-            <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
-              <Lock className="w-4 h-4" />
-              <span>Anti-Hallucination Safe</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-snug">
-              Rewrites only rephrase existing truths; never fabricate degrees or jobs.
-            </p>
           </div>
         </div>
 
       </section>
 
       {/* 3. Main Tool Interactive Interface */}
-      <main className="px-4 md:px-12 pb-16 max-w-6xl mx-auto w-full space-y-6">
+      <main className="px-4 md:px-12 pb-16 max-w-5xl mx-auto w-full space-y-6">
         
-        {/* CV Selector & Import Bar */}
-        <CVSelectorBar
-          selectedCvData={cvData}
-          selectedDesignConfig={designConfig}
-          selectedCvTitle={cvTitle}
-          selectedCvId={cvId}
-          userCVs={userCVs}
-          currentUser={currentUser}
-          onSelectCV={onSelectCV}
-          onOpenInEditor={onStartBuilding}
-          onOpenAuth={onSignIn}
-          onImportSuccess={handleImportSuccess}
-        />
+        {/* Step 1: Upload CV / Select from My CVs (Unified ResumeUpload component) */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4">
+          <div className="pb-3 border-b border-slate-800 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider">Step 1</span>
+              <h3 className="text-sm sm:text-base font-bold text-white">Select or Upload Resume to Match</h3>
+            </div>
+            <span className="text-xs text-slate-400 hidden sm:inline">
+              Compare this document against your target role
+            </span>
+          </div>
 
-        {/* Embedded Job Match View (Reusing exact engine & UI) */}
-        <div className="shadow-2xl rounded-2xl overflow-hidden">
+          <ResumeUpload
+            onUploadSuccess={handleImportSuccess}
+            currentUser={currentUser}
+            userCVs={userCVs}
+            onSelectSavedCV={(record) => {
+              onSelectCV(record);
+              setMatchKey(prev => prev + 1);
+            }}
+            currentCvTitle={cvTitle}
+            onSignInPrompt={onSignIn}
+            variant="compact"
+            title="Upload a resume or choose from saved CVs"
+            subtitle="Supports PDF, DOCX, DOC, or TXT. Instantly loads your career data for job comparison."
+            primaryActionLabel="Upload Resume to Match"
+            showCurrentCVBadge={true}
+          />
+        </div>
+
+        {/* Step 2 & 3: Target Job Description & Check Match (Embedded JobMatchView) */}
+        <div className="shadow-2xl rounded-2xl overflow-hidden border border-slate-800/80">
           <JobMatchView
+            key={`job-match-engine-${matchKey}`}
             cvData={cvData}
             cvTitle={cvTitle}
             onUpdateCVData={onUpdateCVData}
@@ -258,11 +226,11 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
         <div className="p-6 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border border-indigo-800/40 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center sm:text-left">
             <div className="flex items-center justify-center sm:justify-start gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Next Step: Verify Formatting</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Next Step: Verify Document Format</span>
             </div>
-            <h3 className="text-base font-bold text-white">Check Your Resume&apos;s ATS Parseability Score</h3>
+            <h3 className="text-base font-bold text-white">Ensure Clean ATS Parseability &amp; Structure</h3>
             <p className="text-xs text-slate-400 max-w-xl">
-              Now that your skills and keywords align with this job vacancy, verify that your resume structure, section titles, and action verbs pass automated corporate parsers with our <strong>Free ATS Resume Checker</strong>.
+              After aligning your skills with the job description, run our <strong>Free ATS Resume Checker</strong> to ensure file layout, date formats, section titles, and action verbs pass recruiter screening bots.
             </p>
           </div>
 
@@ -271,26 +239,26 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
             className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 shadow-md shadow-indigo-600/20"
             id="job_match_page_to_ats_btn"
           >
-            <span>Run ATS Format Audit</span>
+            <span>Scan Resume Parseability</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
       </main>
 
-      {/* 4. Educational & SEO Content Section */}
+      {/* 4. Educational & SEO Content Section (Strictly below the functional tool) */}
       <section className="px-4 md:px-12 py-16 bg-slate-900/40 border-t border-slate-800/80">
         <div className="max-w-5xl mx-auto space-y-16">
           
-          {/* Section: How Job Description Matching Works */}
+          {/* How the Evaluation Engine Works */}
           <div className="space-y-6">
             <div className="text-center max-w-2xl mx-auto space-y-2">
-              <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">Multi-Faceted Alignment</span>
+              <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">Algorithmic Scoring</span>
               <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 How Our Resume Job Match Engine Evaluates Alignment
               </h2>
               <p className="text-xs sm:text-sm text-slate-400">
-                A high-performing tailored resume does not merely repeat keywords. Our engine computes an objective match percentage weighted across five key job criteria:
+                Our engine compares your CV against vacancy descriptions across 5 core criteria:
               </p>
             </div>
 
@@ -298,102 +266,93 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
               
               <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white">1. Skills Match</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800/40">30% Weight</span>
+                  <h3 className="text-sm font-bold text-white">1. Hard &amp; Soft Skills Match</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">35% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Extracts hard technologies, methodologies, and core proficiencies from the posting and maps them against your work bullets and skill entries.
+                  Extracts explicit technologies, frameworks, certifications, and methods mentioned in the vacancy, comparing them against your listed skills and experience items.
                 </p>
               </div>
 
               <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-white">2. Experience Alignment</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800/40">25% Weight</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">25% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Compares seniority expectations (years in field, leadership duties, project complexity) to your demonstrated career progression.
+                  Evaluates whether your past job responsibilities and day-to-day duties align with the core day-to-day duties detailed in the target role overview.
                 </p>
               </div>
 
               <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white">3. Keyword Coverage</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800/40">20% Weight</span>
+                  <h3 className="text-sm font-bold text-white">3. Priority Keyword Coverage</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">20% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Checks essential industry terminology and phrases, tracking whether required qualifications are present in your resume.
+                  Differentiates between Required vs Preferred keywords and verifies that high-frequency terms appear in meaningful context throughout your CV.
                 </p>
               </div>
 
               <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white">4. Role Relevance</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800/40">15% Weight</span>
+                  <h3 className="text-sm font-bold text-white">4. Role Level &amp; Relevance</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">10% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Evaluates whether your past job titles, summaries, and highlighted projects directly correlate with the target position&apos;s daily duties.
+                  Checks seniority matching (Junior, Mid, Senior, Lead, Executive) and confirms the scope of your past achievements reflects the expected ownership level.
                 </p>
               </div>
 
               <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white">5. Education Alignment</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800/40">10% Weight</span>
+                  <h3 className="text-sm font-bold text-white">5. Education &amp; Credentials</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">10% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Evaluates degree requirements, fields of study, and relevant professional certifications requested by the hiring company.
+                  Verifies degree requirements (B.S., M.S., or equivalent experience) and specialized industry licenses requested in the posting.
                 </p>
               </div>
 
-              <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-teal-300">Total Score: 100 Points</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed mt-1">
-                    Transparent mathematical scoring. No black-box guesses or arbitrary penalties.
-                  </p>
+              <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white">Strengths &amp; Gaps</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/40">Actionable</span>
                 </div>
-                <button
-                  onClick={onStartBuilding}
-                  className="text-xs text-teal-400 hover:text-teal-300 font-bold flex items-center gap-1 mt-2 cursor-pointer"
-                >
-                  <span>Build Tailored CV</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Highlights your competitive advantages while clearly outlining missing requirements with honest recommendations on how to address them.
+                </p>
               </div>
 
             </div>
           </div>
 
-          {/* Section: Tailoring Advice */}
-          <div className="border-t border-slate-800 pt-12 space-y-8">
+          {/* How to Tailor Without Hallucinations */}
+          <div className="border-t border-slate-800 pt-12 space-y-6">
             <div className="text-center max-w-xl mx-auto space-y-2">
-              <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">Smart Strategy</span>
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Ethical Tailoring</span>
               <h2 className="text-2xl font-bold text-white">How to Tailor Your CV Without Keyword Stuffing</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
-                <span className="w-7 h-7 rounded-lg bg-teal-600/20 border border-teal-500/40 flex items-center justify-center font-bold text-xs text-teal-300">1</span>
-                <h3 className="text-sm font-bold text-white">Mirror Authentic Terminology</h3>
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+                <h3 className="text-sm font-bold text-white">Contextual Placement</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  If the job says &ldquo;Client Relationship Management&rdquo; and your CV says &ldquo;Account Servicing&rdquo;, rephrase using the employer&apos;s phrasing if you have genuine experience.
+                  Never append a hidden list of buzzwords. Incorporate target skills naturally inside your work experience bullet points alongside measurable business impact.
                 </p>
               </div>
 
-              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
-                <span className="w-7 h-7 rounded-lg bg-teal-600/20 border border-teal-500/40 flex items-center justify-center font-bold text-xs text-teal-300">2</span>
-                <h3 className="text-sm font-bold text-white">Emphasize Priority Requirements</h3>
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+                <h3 className="text-sm font-bold text-white">Reorder for Relevance</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Put the skills and responsibilities marked as &ldquo;Required&rdquo; higher up in your bullet points or in your professional summary so recruiters see them immediately.
+                  Move projects and bullet points that demonstrate the job&apos;s most critical requirements toward the top of each employment entry where recruiters see them first.
                 </p>
               </div>
 
-              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
-                <span className="w-7 h-7 rounded-lg bg-teal-600/20 border border-teal-500/40 flex items-center justify-center font-bold text-xs text-teal-300">3</span>
-                <h3 className="text-sm font-bold text-white">Address Gaps Honestly</h3>
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+                <h3 className="text-sm font-bold text-white">Address Skill Gaps Honestly</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Never fabricate missing qualifications. Instead, highlight adjacent experience or fast learning capacity in your summary or cover letter.
+                  If you haven&apos;t used a specific tool, highlight adjacent technologies or mention ongoing learning in your cover letter rather than claiming unverified mastery.
                 </p>
               </div>
             </div>
@@ -402,7 +361,7 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
           {/* Section: Frequently Asked Questions (FAQ) */}
           <div className="border-t border-slate-800 pt-12 space-y-6">
             <div className="text-center max-w-xl mx-auto space-y-2">
-              <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">Got Questions?</span>
+              <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">FAQ</span>
               <h2 className="text-2xl font-bold text-white">Frequently Asked Questions</h2>
             </div>
 
@@ -411,40 +370,30 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
               <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
                 <h3 className="font-bold text-white flex items-center gap-2">
                   <HelpCircle className="w-4 h-4 text-teal-400 shrink-0" />
-                  <span>Why is matching a CV to a job description so important?</span>
-                </h3>
-                <p className="text-slate-400 leading-relaxed pl-6">
-                  Corporate recruiters receive hundreds of applications per opening. ATS search queries and recruiter screeners prioritize candidates whose resumes explicitly reflect the key skills and core deliverables described in the posting.
-                </p>
-              </div>
-
-              <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
-                <h3 className="font-bold text-white flex items-center gap-2">
-                  <HelpCircle className="w-4 h-4 text-teal-400 shrink-0" />
                   <span>What is a good Job Match score?</span>
                 </h3>
                 <p className="text-slate-400 leading-relaxed pl-6">
-                  A score above 75% indicates strong alignment with the role&apos;s essential qualifications. A score above 85% means your experience, skills, and vocabulary closely mirror what the hiring team is looking for.
+                  A score of 75% or higher indicates strong alignment with the job posting. Employers rarely require a 100% match, as postings often combine essential requirements with &ldquo;nice to have&rdquo; wish-list skills.
                 </p>
               </div>
 
               <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
                 <h3 className="font-bold text-white flex items-center gap-2">
                   <HelpCircle className="w-4 h-4 text-teal-400 shrink-0" />
-                  <span>Does ProCVMaker invent or hallucinate skills?</span>
+                  <span>Does tailoring my CV mean making things up?</span>
                 </h3>
                 <p className="text-slate-400 leading-relaxed pl-6">
-                  No. We operate under a strict anti-hallucination policy. Missing requirements are labeled as gaps, and our tailoring recommendations only rephrase the authentic achievements already in your resume.
+                  No. ProCVMaker strictly enforces a zero-hallucination policy. Tailoring means rephrasing your authentic career experience using the terminology preferred by the employer, spotlighting relevant achievements and reprioritizing bullet points.
                 </p>
               </div>
 
               <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
                 <h3 className="font-bold text-white flex items-center gap-2">
                   <HelpCircle className="w-4 h-4 text-teal-400 shrink-0" />
-                  <span>Can I save different tailored versions of my resume?</span>
+                  <span>Can I save tailored versions of my resume?</span>
                 </h3>
                 <p className="text-slate-400 leading-relaxed pl-6">
-                  Yes! When logged in to ProCVMaker, you can create and store multiple tailored CVs in your cloud dashboard (e.g. &ldquo;Software Engineer – Fintech&rdquo;, &ldquo;Full Stack – Healthcare&rdquo;) and download free PDFs for each application.
+                  Yes. Signed-in users can duplicate their CVs, customize one version for each specific target position, and store up to 20 different tailored resumes in cloud storage.
                 </p>
               </div>
 
@@ -453,24 +402,24 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
 
           {/* Bottom Call to Action */}
           <div className="p-8 bg-gradient-to-tr from-teal-950/40 via-slate-900 to-slate-950 border border-teal-800/40 rounded-3xl text-center space-y-4 shadow-xl">
-            <h2 className="text-2xl font-bold text-white tracking-tight">Tailor Your Resume in Minutes</h2>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Ready to Customize Your Resume?</h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-lg mx-auto">
-              Launch our full CV Editor to apply tailoring suggestions, adjust design layouts, and export ATS-compliant PDFs.
+              Apply tailored suggestions directly into your CV and export a clean, ATS-friendly PDF ready for job applications.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 onClick={onStartBuilding}
-                className="px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg shadow-teal-500/25 cursor-pointer flex items-center gap-2"
+                className="px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg shadow-teal-500/20 cursor-pointer flex items-center gap-2"
                 id="job_match_page_bottom_builder_btn"
               >
-                <span>Launch Resume Builder</span>
+                <span>Open CV Editor</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 onClick={onOpenATSChecker}
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition cursor-pointer border border-slate-700"
               >
-                <span>Free ATS Resume Checker</span>
+                <span>Check ATS Compatibility</span>
               </button>
             </div>
           </div>
@@ -529,8 +478,8 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
         </div>
 
         <div className="max-w-6xl mx-auto mt-6 pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500">
-          <p>© 2026 ProCVMaker. All rights reserved.</p>
-          <p className="mt-2 sm:mt-0">Zero paywalls &bull; Ethical, authentic tailoring</p>
+          <p>&copy; 2026 ProCVMaker. All rights reserved.</p>
+          <p className="mt-2 sm:mt-0">Zero hallucinations &bull; Authentic career tailoring</p>
         </div>
       </footer>
 

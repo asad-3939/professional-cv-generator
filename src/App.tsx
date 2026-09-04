@@ -436,6 +436,22 @@ export default function App() {
       ) : currentRoute === "home" ? (
         <Homepage 
           currentUser={currentUser}
+          userCVs={cachedUserCVs}
+          onImportResume={(parsedCV, title) => {
+            setCvData(parsedCV);
+            setActiveCvTitle(title);
+            setActiveCvId(null);
+            navigateTo("builder");
+            setSuccessToast(`Imported "${title}"! Ready to customize in the CV Editor.`);
+          }}
+          onSelectSavedCV={(cvRecord) => {
+            setActiveCvId(cvRecord.id || null);
+            setActiveCvTitle(cvRecord.title);
+            setCvData(cvRecord.data);
+            setDesignConfig(cvRecord.design);
+            navigateTo("builder");
+            setSuccessToast(`Loaded "${cvRecord.title}" into CV Editor!`);
+          }}
           onStartBuilding={(templateId, initialTab) => {
             if (templateId) {
               setDesignConfig(prev => ({ ...prev, templateId }));
@@ -500,6 +516,12 @@ export default function App() {
             onNavigateHome={() => navigateTo("home")}
             onNavigatePrivacy={() => navigateTo("privacy")}
             onNavigateTerms={() => navigateTo("terms")}
+            onNavigateTemplates={() => {
+              navigateTo("home");
+              setTimeout(() => {
+                document.getElementById("templates")?.scrollIntoView({ behavior: "smooth" });
+              }, 150);
+            }}
           />
         </Suspense>
       ) : currentRoute === "job-match" ? (
@@ -538,6 +560,12 @@ export default function App() {
             onNavigateHome={() => navigateTo("home")}
             onNavigatePrivacy={() => navigateTo("privacy")}
             onNavigateTerms={() => navigateTo("terms")}
+            onNavigateTemplates={() => {
+              navigateTo("home");
+              setTimeout(() => {
+                document.getElementById("templates")?.scrollIntoView({ behavior: "smooth" });
+              }, 150);
+            }}
           />
         </Suspense>
       ) : (
@@ -586,6 +614,50 @@ export default function App() {
                 <span>Import</span>
               </button>
             </div>
+
+            {/* Center: Core Public Tools Links */}
+            <nav className="hidden xl:flex items-center gap-1 text-xs font-semibold text-slate-400">
+              <span className="text-teal-300 font-bold bg-teal-950/50 border border-teal-800/50 px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                <span>CV Builder</span>
+              </span>
+              <a
+                href="/ats-checker"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo("ats-checker");
+                }}
+                className="text-slate-300 hover:text-white hover:bg-slate-900 px-2.5 py-1 rounded-lg transition"
+                id="builder_header_nav_ats_checker"
+              >
+                ATS Checker
+              </a>
+              <a
+                href="/job-match"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo("job-match");
+                }}
+                className="text-slate-300 hover:text-white hover:bg-slate-900 px-2.5 py-1 rounded-lg transition"
+                id="builder_header_nav_job_match"
+              >
+                Job Match
+              </a>
+              <a
+                href="/#templates"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo("home");
+                  setTimeout(() => {
+                    document.getElementById("templates")?.scrollIntoView({ behavior: "smooth" });
+                  }, 150);
+                }}
+                className="text-slate-300 hover:text-white hover:bg-slate-900 px-2.5 py-1 rounded-lg transition"
+                id="builder_header_nav_templates"
+              >
+                Templates
+              </a>
+            </nav>
 
             {/* Right: Small Save Status, Download Dropdown, User Profile */}
             <div className="flex items-center gap-2 sm:gap-3">

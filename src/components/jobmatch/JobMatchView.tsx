@@ -355,7 +355,7 @@ export const JobMatchView: React.FC<JobMatchViewProps> = ({
                 ) : (
                   <>
                     <Target className="w-4 h-4 text-slate-950" />
-                    <span>Compare &amp; Analyze Match</span>
+                    <span>Check My Match</span>
                   </>
                 )}
               </button>

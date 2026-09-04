@@ -1,13 +1,14 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { 
   ShieldCheck, CheckCircle2, AlertCircle, ArrowRight, 
   Sparkles, FileText, ChevronRight, HelpCircle, Layers, 
-  Award, Target, Lock, Zap, LogIn, ExternalLink, RefreshCw
+  Award, Target, Lock, Zap, LogIn, ExternalLink, RefreshCw, Check
 } from "lucide-react";
 import { CVData, CVRecord, DesignConfig } from "../types";
 import { ATSAnalyzerView } from "./ats/ATSAnalyzerView";
-import { CVSelectorBar } from "./common/CVSelectorBar";
+import { ResumeUpload } from "./common/ResumeUpload";
 import { UserDropdown } from "./UserDropdown";
+import { Header } from "./Header";
 
 export interface ATSCheckerPageProps {
   cvData: CVData;
@@ -20,6 +21,7 @@ export interface ATSCheckerPageProps {
   onSelectCV: (cvRecord: { data: CVData; design: DesignConfig; title: string; id?: string }) => void;
   onStartBuilding: () => void;
   onOpenJobMatch: () => void;
+  onNavigateTemplates?: () => void;
   onOpenDashboard?: () => void;
   onOpenSettings?: () => void;
   onSignIn: () => void;
@@ -46,8 +48,12 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
   onSignOut,
   onNavigateHome,
   onNavigatePrivacy,
-  onNavigateTerms
+  onNavigateTerms,
+  onNavigateTemplates
 }) => {
+  const [analysisKey, setAnalysisKey] = useState<number>(0);
+  const [hasTriggeredCheck, setHasTriggeredCheck] = useState<boolean>(true);
+
   // Sync page SEO metadata on mount
   useEffect(() => {
     document.title = "Free ATS Resume Checker – Test & Improve Resume Score | ProCVMaker";
@@ -86,165 +92,110 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
       design: designConfig,
       title: title
     });
+    setAnalysisKey(prev => prev + 1);
+    setHasTriggeredCheck(true);
+  };
+
+  const handleRunAudit = () => {
+    setAnalysisKey(prev => prev + 1);
+    setHasTriggeredCheck(true);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-600 selection:text-white">
       
       {/* 1. Header Navigation */}
-      <header className="h-16 md:h-20 border-b border-slate-850 px-4 md:px-12 flex items-center justify-between sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onNavigateHome}
-            className="flex items-center gap-3 text-left cursor-pointer group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-md shadow-xl shadow-indigo-500/15 shrink-0 group-hover:scale-105 transition-transform">
-              AI
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-white tracking-tight">ProCVMaker</span>
-              </div>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">AI CV Builder &amp; ATS Resume Checker</p>
-            </div>
-          </button>
-        </div>
+      <Header
+        currentRoute="ats-checker"
+        currentUser={currentUser}
+        onNavigateHome={onNavigateHome}
+        onNavigateBuilder={onStartBuilding}
+        onNavigateATSChecker={() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onNavigateJobMatch={onOpenJobMatch}
+        onNavigateTemplates={onNavigateTemplates || (() => {
+          onNavigateHome();
+          setTimeout(() => {
+            document.getElementById("templates")?.scrollIntoView({ behavior: "smooth" });
+          }, 150);
+        })}
+        onOpenDashboard={onOpenDashboard}
+        onOpenSettings={onOpenSettings}
+        onSignIn={onSignIn}
+        onSignOut={onSignOut}
+        onNavigatePrivacy={onNavigatePrivacy}
+        onNavigateTerms={onNavigateTerms}
+        primaryCtaLabel="Open CV Editor"
+        onPrimaryCta={onStartBuilding}
+      />
 
-        {/* Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-8 text-xs font-semibold text-slate-400">
-          <button 
-            onClick={onStartBuilding}
-            className="hover:text-white transition-colors cursor-pointer"
-          >
-            Resume Builder
-          </button>
-          <span className="text-indigo-400 font-bold border-b border-indigo-400 pb-0.5">
-            ATS Checker
-          </span>
-          <button 
-            onClick={onOpenJobMatch}
-            className="hover:text-white transition-colors cursor-pointer"
-          >
-            Job Match
-          </button>
-        </nav>
-
-        {/* User Account / Primary Action */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          {currentUser ? (
-            <UserDropdown
-              currentUser={currentUser}
-              onOpenDashboard={onOpenDashboard || onStartBuilding}
-              onOpenSettings={onOpenSettings || onOpenDashboard || onStartBuilding}
-              onSignOut={onSignOut}
-              onNavigatePrivacy={onNavigatePrivacy}
-              onNavigateTerms={onNavigateTerms}
-            />
-          ) : (
-            <button
-              onClick={onSignIn}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-slate-300 hover:text-white hover:bg-slate-900 rounded-xl text-xs font-semibold transition cursor-pointer border border-transparent hover:border-slate-800"
-              id="ats_page_signin_btn"
-            >
-              <LogIn className="w-3.5 h-3.5 text-slate-400" />
-              <span>Sign In</span>
-            </button>
-          )}
-
-          <button
-            onClick={onStartBuilding}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-sm hover:shadow-indigo-600/20 cursor-pointer"
-            id="ats_page_top_cta_btn"
-          >
-            <span>Open CV Editor</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </header>
-
-      {/* 2. Hero Section */}
-      <section className="relative px-4 md:px-12 pt-10 md:pt-16 pb-8 max-w-6xl mx-auto w-full text-center">
+      {/* 2. Tool-First Hero Header */}
+      <section className="relative px-4 md:px-12 pt-10 md:pt-14 pb-6 max-w-5xl mx-auto w-full text-center">
         
         {/* Trust Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-5 shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Deterministic ATS Rule Checks + AI Content Polish &bull; 100% Free</span>
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-4 shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span>Rule-Based Parsing Audit + AI Content Polish &bull; 100% Free</span>
         </div>
 
         {/* Main H1 */}
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight max-w-3xl mx-auto">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight max-w-3xl mx-auto">
           Free ATS Resume Checker
         </h1>
 
-        <p className="mt-4 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
-          Audit your resume against the parsing algorithms used by modern Applicant Tracking Systems (ATS). Spot hidden structural bugs, quantify your bullet points, and optimize wording to get more recruiter callbacks.
+        <p className="mt-3 text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
+          Audit your resume against the parsing algorithms used by modern Applicant Tracking Systems. Spot machine-readability issues, quantify bullet impact, and fix formatting bugs before applying.
         </p>
-
-        {/* Feature Highlights Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8 max-w-4xl mx-auto text-left">
-          <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-1">
-            <div className="flex items-center gap-1.5 text-indigo-400 text-xs font-bold">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Parseability Audit</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-snug">
-              Ensures clear text layer, standard sections, and clean font formatting.
-            </p>
-          </div>
-
-          <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-1">
-            <div className="flex items-center gap-1.5 text-teal-400 text-xs font-bold">
-              <Target className="w-4 h-4" />
-              <span>Action Verbs &amp; Impact</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-snug">
-              Identifies passive language and flags bullets that lack measurable numbers.
-            </p>
-          </div>
-
-          <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-1">
-            <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold">
-              <Zap className="w-4 h-4" />
-              <span>1-Click Diff Rewrites</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-snug">
-              Apply fact-preserving active rewrites directly to your resume.
-            </p>
-          </div>
-
-          <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl space-y-1">
-            <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
-              <Lock className="w-4 h-4" />
-              <span>No Fabricated Data</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-snug">
-              Strict guardrails ensure your authentic career history is never falsified.
-            </p>
-          </div>
-        </div>
 
       </section>
 
-      {/* 3. Main Tool Interactive Interface */}
-      <main className="px-4 md:px-12 pb-16 max-w-6xl mx-auto w-full space-y-6">
+      {/* 3. Primary Tool Workspace: Upload Resume & Run Audit */}
+      <main className="px-4 md:px-12 pb-16 max-w-5xl mx-auto w-full space-y-6">
         
-        {/* CV Selector & Import Bar */}
-        <CVSelectorBar
-          selectedCvData={cvData}
-          selectedDesignConfig={designConfig}
-          selectedCvTitle={cvTitle}
-          selectedCvId={cvId}
-          userCVs={userCVs}
-          currentUser={currentUser}
-          onSelectCV={onSelectCV}
-          onOpenInEditor={onStartBuilding}
-          onOpenAuth={onSignIn}
-          onImportSuccess={handleImportSuccess}
-        />
+        {/* Step 1: Resume Upload / Selection Bar */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-4">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div>
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Step 1</span>
+              <h3 className="text-sm sm:text-base font-bold text-white">Select or Upload Resume to Audit</h3>
+            </div>
 
-        {/* Embedded ATS Analyzer View (Reusing exact analyzer engine & UI) */}
-        <div className="shadow-2xl rounded-2xl overflow-hidden">
+            {/* Obvious Primary Action: Check ATS Score */}
+            <button
+              onClick={handleRunAudit}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs sm:text-sm font-bold transition shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer shrink-0"
+              id="ats_page_check_score_btn"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Check ATS Score</span>
+            </button>
+          </div>
+
+          {/* Unified ResumeUpload component */}
+          <ResumeUpload
+            onUploadSuccess={handleImportSuccess}
+            currentUser={currentUser}
+            userCVs={userCVs}
+            onSelectSavedCV={(record) => {
+              onSelectCV(record);
+              setAnalysisKey(prev => prev + 1);
+            }}
+            currentCvTitle={cvTitle}
+            onSignInPrompt={onSignIn}
+            variant="compact"
+            title="Upload a new CV or pick from saved resumes"
+            subtitle="Supports PDF, DOCX, DOC, or TXT. Instantly extracts work history and prepares it for the ATS audit."
+            primaryActionLabel="Upload Resume"
+            showCurrentCVBadge={true}
+          />
+        </div>
+
+        {/* Step 2: Embedded ATS Analyzer View (Keeps existing full engine and scoring intact) */}
+        <div className="shadow-2xl rounded-2xl overflow-hidden border border-slate-800/80">
           <ATSAnalyzerView
+            key={`ats-engine-${analysisKey}`}
             cvData={cvData}
             designConfig={designConfig}
             cvTitle={cvTitle}
@@ -252,7 +203,7 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
             onOpenJobMatch={onOpenJobMatch}
             onOpenInEditor={onStartBuilding}
             inModal={false}
-            autoRun={true}
+            autoRun={hasTriggeredCheck}
           />
         </div>
 
@@ -280,10 +231,24 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
 
       </main>
 
-      {/* 4. Educational & SEO Content Section */}
+      {/* 4. Educational & SEO Content Section (Strictly below the tool) */}
       <section className="px-4 md:px-12 py-16 bg-slate-900/40 border-t border-slate-800/80">
         <div className="max-w-5xl mx-auto space-y-16">
           
+          {/* Section: What is an ATS? */}
+          <div className="space-y-4 text-left max-w-3xl mx-auto">
+            <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Understanding ATS Systems</span>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              What is an ATS (Applicant Tracking System)?
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              An Applicant Tracking System is recruiting software used by over 90% of mid-size and Fortune 500 employers (including platforms like Workday, Taleo, Greenhouse, and Lever) to collect, parse, and screen incoming job applications. Rather than reading each resume as a visual PDF, the system converts the document into structured data fields: contact information, work history, skills, and education.
+            </p>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              If a resume contains complex multi-column tables, unusual graphic elements, or missing standard headings, the parser may misread employment dates or drop key skills altogether. Our ATS Resume Checker audits machine readability to ensure your achievements make it past the software to human hiring managers.
+            </p>
+          </div>
+
           {/* Section: What the ATS Analysis Checks */}
           <div className="space-y-6">
             <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -292,7 +257,7 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
                 What Does Our Free ATS Resume Checker Audit?
               </h2>
               <p className="text-xs sm:text-sm text-slate-400">
-                Applicant Tracking Systems evaluate resumes using multi-layered parsing heuristics. Our hybrid engine scores your CV across 6 critical weighted dimensions:
+                Our hybrid audit evaluates your CV across 6 critical weighted dimensions:
               </p>
             </div>
 
@@ -304,7 +269,7 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-400 border border-indigo-800/40">25% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Checks that text layers are machine-readable, standard UTF-8 characters are used, fonts are universally supported, and layout structures won&apos;t scramble in Taleo, Workday, or Greenhouse.
+                  Checks that text layers are machine-readable, standard UTF-8 characters are used, fonts are universally supported, and layout structures won&apos;t scramble in corporate systems.
                 </p>
               </div>
 
@@ -344,7 +309,7 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-400 border border-indigo-800/40">15% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Assesses sentence length, repetition, and professional executive tone. Keeps bullet points between 10 and 35 words so human recruiters can scan them in 6 seconds.
+                  Assesses sentence length, repetition, and professional executive tone. Keeps bullet points between 10 and 35 words so human recruiters can scan them quickly.
                 </p>
               </div>
 
@@ -361,10 +326,41 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
             </div>
           </div>
 
+          {/* Section: ATS Tips */}
+          <div className="border-t border-slate-800 pt-12 space-y-6">
+            <div className="text-center max-w-xl mx-auto space-y-2">
+              <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">Expert Advice</span>
+              <h2 className="text-2xl font-bold text-white">Key Tips for Passing ATS Screens</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+                <h3 className="text-sm font-bold text-white">Use Standard Headings</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Stick to conventional labels like &ldquo;Work Experience&rdquo;, &ldquo;Education&rdquo;, and &ldquo;Skills&rdquo;. Avoid creative headings like &ldquo;My Journey&rdquo; which parsers fail to classify.
+                </p>
+              </div>
+
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+                <h3 className="text-sm font-bold text-white">Quantify Every Bullet Point</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Include metrics, percentages, revenue figures, or team sizes. Quantified statements carry higher algorithmic relevance and prove tangible business results.
+                </p>
+              </div>
+
+              <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+                <h3 className="text-sm font-bold text-white">Avoid Text in Images &amp; Tables</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  ATS parsers cannot reliably read text embedded inside images, icons, or complex multi-cell nested tables. Use standard sequential text flow.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Section: 3-Step Process */}
           <div className="border-t border-slate-800 pt-12 space-y-8">
             <div className="text-center max-w-xl mx-auto space-y-2">
-              <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">Simple Workflow</span>
+              <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Simple Workflow</span>
               <h2 className="text-2xl font-bold text-white">How to Optimize Your Resume with ProCVMaker</h2>
             </div>
 
@@ -389,7 +385,7 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
                 <span className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center font-bold text-xs text-blue-300">3</span>
                 <h3 className="text-sm font-bold text-white">Apply Fixes in CV Builder</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Review side-by-side active voice rewrites and apply them directly to your CV. Then download a clean, ATS-compliant PDF ready for corporate portals.
+                  Review side-by-side active voice rewrites and apply them directly to your CV. Then download a clean, ATS-friendly PDF ready for corporate portals.
                 </p>
               </div>
             </div>
@@ -404,16 +400,6 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
 
             <div className="space-y-3 max-w-3xl mx-auto text-xs">
               
-              <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
-                <h3 className="font-bold text-white flex items-center gap-2">
-                  <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0" />
-                  <span>What is an ATS (Applicant Tracking System)?</span>
-                </h3>
-                <p className="text-slate-400 leading-relaxed pl-6">
-                  An Applicant Tracking System is HR software (such as Workday, Taleo, iCIMS, or Greenhouse) used by employers to collect, sort, and screen job applications. It parses your CV into structured database fields (contact info, jobs, education, and skills) before a human recruiter ever sees it.
-                </p>
-              </div>
-
               <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
                 <h3 className="font-bold text-white flex items-center gap-2">
                   <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0" />
@@ -535,7 +521,7 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
         </div>
 
         <div className="max-w-6xl mx-auto mt-6 pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500">
-          <p>© 2026 ProCVMaker. All rights reserved.</p>
+          <p>&copy; 2026 ProCVMaker. All rights reserved.</p>
           <p className="mt-2 sm:mt-0">Zero paywalls &bull; Authentic career presentation</p>
         </div>
       </footer>
