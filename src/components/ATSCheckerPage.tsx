@@ -131,10 +131,10 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
       />
 
       {/* 2. Tool-First Hero Header */}
-      <section className="relative px-4 md:px-12 pt-10 md:pt-14 pb-6 max-w-5xl mx-auto w-full text-center">
+      <section className="relative px-4 md:px-12 pt-6 md:pt-8 pb-4 max-w-5xl mx-auto w-full text-center">
         
         {/* Trust Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-4 shadow-sm">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-3 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
           <span>Rule-Based Parsing Audit + AI Content Polish &bull; 100% Free</span>
         </div>
@@ -144,7 +144,7 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
           Free ATS Resume Checker
         </h1>
 
-        <p className="mt-3 text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-2.5 text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
           Audit your resume against the parsing algorithms used by modern Applicant Tracking Systems. Spot machine-readability issues, quantify bullet impact, and fix formatting bugs before applying.
         </p>
 
@@ -186,8 +186,8 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
             onSignInPrompt={onSignIn}
             variant="compact"
             title="Upload a new CV or pick from saved resumes"
-            subtitle="Supports PDF, DOCX, DOC, or TXT. Instantly extracts work history and prepares it for the ATS audit."
-            primaryActionLabel="Upload Resume"
+            subtitle="PDF, DOCX, DOC or TXT • Max 10MB"
+            primaryActionLabel="Choose File"
             showCurrentCVBadge={true}
           />
         </div>

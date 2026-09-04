@@ -124,10 +124,10 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
       />
 
       {/* 2. Tool-First Hero Header */}
-      <section className="relative px-4 md:px-12 pt-10 md:pt-14 pb-6 max-w-5xl mx-auto w-full text-center">
+      <section className="relative px-4 md:px-12 pt-6 md:pt-8 pb-4 max-w-5xl mx-auto w-full text-center">
         
         {/* Trust Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-4 shadow-sm">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-3 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
           <span>Semantic Keyword Alignment &bull; Gap Detection &bull; Zero Hallucinations</span>
         </div>
@@ -137,12 +137,12 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
           Resume Job Match
         </h1>
 
-        <p className="mt-3 text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-2.5 text-xs sm:text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
           Compare your resume directly against any job description. Instantly identify matching qualifications, discover critical missing skills, and tailor your bullet points to fit the role without inventing facts.
         </p>
 
         {/* 3-Step Process Flow Indicator */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-6 max-w-2xl mx-auto text-left">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4 sm:mt-5 max-w-2xl mx-auto text-left">
           <div className="p-2.5 sm:p-3 bg-slate-900/80 border border-slate-800 rounded-xl flex items-center gap-2.5">
             <span className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 font-bold text-xs flex items-center justify-center shrink-0">
               1
@@ -203,8 +203,8 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
             onSignInPrompt={onSignIn}
             variant="compact"
             title="Upload a resume or choose from saved CVs"
-            subtitle="Supports PDF, DOCX, DOC, or TXT. Instantly loads your career data for job comparison."
-            primaryActionLabel="Upload Resume to Match"
+            subtitle="PDF, DOCX, DOC or TXT • Max 10MB"
+            primaryActionLabel="Choose File"
             showCurrentCVBadge={true}
           />
         </div>

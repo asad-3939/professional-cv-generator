@@ -140,17 +140,17 @@ export function Homepage({
       />
 
       {/* 2. Hero Section with Prominent Resume Upload */}
-      <section className="relative px-4 md:px-12 pt-12 md:pt-16 pb-12 md:pb-16 max-w-5xl mx-auto flex flex-col items-center text-center">
+      <section className="relative px-4 md:px-12 pt-7 md:pt-9 pb-8 md:pb-10 max-w-5xl mx-auto flex flex-col items-center text-center">
         
         {/* Subtle Trust Badge */}
         <motion.div 
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="inline-flex items-center gap-2 px-3 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-6 shadow-sm"
+          className="inline-flex items-center gap-2 px-3 py-1 bg-slate-900 border border-slate-800 text-slate-300 rounded-full text-xs font-medium mb-3.5 shadow-sm"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span>ATS-Friendly Formatting &bull; Free Vector PDF Export</span>
+          <span>Free CV Builder &bull; ATS Checker &bull; Job Match</span>
         </motion.div>
 
         {/* Required H1 */}
@@ -158,7 +158,7 @@ export function Homepage({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.05 }}
-          className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-[1.15] max-w-3xl"
+          className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-[1.15] max-w-3xl"
         >
           Build, Check &amp; Improve Your CV with AI
         </motion.h1>
@@ -168,9 +168,9 @@ export function Homepage({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="text-slate-400 text-sm md:text-base mt-4 max-w-2xl leading-relaxed"
+          className="text-slate-400 text-sm md:text-base mt-2.5 max-w-2xl leading-relaxed"
         >
-          Create a new CV or upload your existing resume to improve it, check ATS compatibility, and match it with jobs.
+          Create a professional CV or upload your resume to check ATS compatibility, match jobs, and improve it with AI.
         </motion.p>
 
         {/* Primary Action Zone: Shared Reusable Resume Upload Component */}
@@ -178,7 +178,7 @@ export function Homepage({
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.15 }}
-          className="w-full max-w-2xl mt-8"
+          className="w-full max-w-2xl mt-5"
         >
           <ResumeUpload
             onUploadSuccess={handleSuccessfulUpload}
@@ -187,9 +187,9 @@ export function Homepage({
             onSelectSavedCV={onSelectSavedCV}
             onSignInPrompt={onSignIn}
             variant="hero"
-            title="Drop your resume here, or choose a file"
-            subtitle="Upload PDF, DOCX, DOC, or TXT (up to 10MB) to open and customize in our CV Editor."
-            primaryActionLabel="Upload Your CV"
+            title="Drop your resume here"
+            subtitle="PDF, DOCX, DOC or TXT • Max 10MB"
+            primaryActionLabel="Choose File"
             showCurrentCVBadge={false}
           />
         </motion.div>
@@ -199,7 +199,7 @@ export function Homepage({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
-          className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-400"
+          className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400"
         >
           <span>Starting from scratch?</span>
           <button

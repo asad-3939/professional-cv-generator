@@ -30,7 +30,7 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
   variant = "hero",
   title,
   subtitle,
-  primaryActionLabel = "Upload Your CV",
+  primaryActionLabel = "Choose File",
   className = "",
   showCurrentCVBadge = true
 }) => {
@@ -225,13 +225,19 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`rounded-2xl transition-all duration-200 border relative overflow-hidden ${
+        onClick={(e) => {
+          if (isUploading) return;
+          const target = e.target as HTMLElement;
+          if (target.closest("button, textarea, a, input")) return;
+          fileInputRef.current?.click();
+        }}
+        className={`rounded-2xl transition-all duration-200 border relative overflow-hidden group cursor-pointer ${
           isDragging 
-            ? "border-indigo-500 bg-indigo-950/30 ring-2 ring-indigo-500/40" 
+            ? "border-teal-400 bg-teal-950/30 ring-2 ring-teal-400/40" 
             : isUploading 
-              ? "border-indigo-500/40 bg-slate-900/90" 
-              : "border-slate-800 bg-slate-900/70 hover:border-slate-700"
-        } ${variant === "hero" ? "p-6 sm:p-8" : "p-4 sm:p-5"}`}
+              ? "border-teal-500/40 bg-slate-900/90 cursor-default" 
+              : "border-slate-800 bg-slate-900/70 hover:border-slate-700 hover:bg-slate-900/90"
+        } ${variant === "hero" ? "p-5 sm:p-7" : "p-4 sm:p-5"}`}
       >
 
         {/* Current CV status strip if available */}
@@ -324,45 +330,54 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
           <div className="flex flex-col items-center justify-center text-center">
             
             {/* Primary Action Button & Icon */}
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-3.5 shadow-sm group-hover:scale-105 transition-transform">
-              <Upload className="w-6 h-6 sm:w-7 sm:h-7" />
+            <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center mb-3 shadow-sm group-hover:scale-105 transition-transform">
+              <Upload className="w-6 h-6 text-teal-400" />
             </div>
 
             <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-              {title || (variant === "hero" ? "Drop your resume here, or choose a file" : "Upload your resume")}
+              {title || "Drop your resume here"}
             </h3>
             
-            <p className="text-xs text-slate-400 mt-1 max-w-md leading-relaxed">
-              {subtitle || "Supports PDF, DOCX, DOC, or TXT up to 10MB. We parse all your experience, skills, and sections automatically."}
+            <p className="text-xs text-slate-400 mt-1 max-w-md leading-relaxed font-medium">
+              {subtitle || "PDF, DOCX, DOC or TXT • Max 10MB"}
             </p>
 
             {/* CTAs Row */}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3 w-full sm:w-auto">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-3 w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs sm:text-sm font-bold transition shadow-md shadow-indigo-600/20 cursor-pointer flex items-center justify-center gap-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="w-full sm:w-auto px-6 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-xs sm:text-sm font-bold transition shadow-md shadow-teal-500/20 cursor-pointer flex items-center justify-center gap-2"
                 id="resume_upload_choose_file_btn"
               >
                 <Upload className="w-4 h-4" />
-                <span>{primaryActionLabel}</span>
+                <span>{primaryActionLabel || "Choose File"}</span>
               </button>
 
               {/* Select from My CVs option for logged-in users */}
               {hasSavedCVs ? (
                 <button
                   type="button"
-                  onClick={() => setShowSavedCVsModal(true)}
-                  className="w-full sm:w-auto px-4 py-3 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white rounded-xl text-xs sm:text-sm font-semibold transition border border-slate-700 cursor-pointer flex items-center justify-center gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSavedCVsModal(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white rounded-xl text-xs sm:text-sm font-semibold transition border border-slate-700 cursor-pointer flex items-center justify-center gap-2"
                   id="resume_upload_select_saved_btn"
                 >
-                  <FolderOpen className="w-4 h-4 text-indigo-400" />
+                  <FolderOpen className="w-4 h-4 text-teal-400" />
                   <span>Select from My CVs ({userCVs.length})</span>
                 </button>
               ) : currentUser ? (
                 <button
                   type="button"
-                  onClick={() => setShowPasteArea(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPasteArea(true);
+                  }}
                   className="text-xs text-slate-400 hover:text-slate-200 transition cursor-pointer py-1.5 px-3"
                 >
                   Or paste text
@@ -370,8 +385,11 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
               ) : onSignInPrompt ? (
                 <button
                   type="button"
-                  onClick={onSignInPrompt}
-                  className="w-full sm:w-auto px-4 py-3 bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs sm:text-sm font-medium transition border border-slate-700/80 cursor-pointer flex items-center justify-center gap-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSignInPrompt();
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs sm:text-sm font-medium transition border border-slate-700/80 cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <LogIn className="w-3.5 h-3.5 text-slate-400" />
                   <span>Sign in for saved CVs</span>
@@ -379,7 +397,10 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
               ) : (
                 <button
                   type="button"
-                  onClick={() => setShowPasteArea(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPasteArea(true);
+                  }}
                   className="text-xs text-slate-400 hover:text-slate-200 transition cursor-pointer py-1.5 px-3"
                 >
                   Or paste text
@@ -391,8 +412,11 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
             {hasSavedCVs && (
               <button
                 type="button"
-                onClick={() => setShowPasteArea(true)}
-                className="mt-3 text-[11px] text-slate-500 hover:text-slate-300 transition cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowPasteArea(true);
+                }}
+                className="mt-2.5 text-[11px] text-slate-500 hover:text-slate-300 transition cursor-pointer"
               >
                 Or paste resume text directly
               </button>

@@ -16,7 +16,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Top Header / Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3.5 flex items-center justify-between">
+      <header className="relative z-40 bg-slate-950 border-b border-slate-800 px-4 md:px-8 py-3.5 flex items-center justify-between">
         <a 
           href="/"
           onClick={(e) => {

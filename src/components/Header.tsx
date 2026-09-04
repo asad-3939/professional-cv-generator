@@ -86,7 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-16 md:h-20 border-b border-slate-850 px-4 md:px-8 lg:px-12 flex items-center justify-between sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md">
+    <header className="h-16 md:h-20 border-b border-slate-850 px-4 md:px-8 lg:px-12 flex items-center justify-between relative z-40 bg-slate-950">
       {/* 1. Left: Brand Logo & Title */}
       <div className="flex items-center gap-3">
         <a 
