@@ -6,7 +6,27 @@
       "destination": "/api/index.ts"
     },
     {
-      "source": "/((?!api|static|assets|favicon|logo|icon).*)",
+      "source": "/ats-checker",
+      "destination": "/ats-checker/index.html"
+    },
+    {
+      "source": "/job-match",
+      "destination": "/job-match/index.html"
+    },
+    {
+      "source": "/builder",
+      "destination": "/builder/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/index.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms/index.html"
+    },
+    {
+      "source": "/((?!api|static|assets|favicon|logo|icon|robots\\.txt|sitemap\\.xml|site\\.webmanifest).*)",
       "destination": "/index.html"
     }
   ]
