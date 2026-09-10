@@ -18,7 +18,13 @@ const pages = [
   { path: "/terms", title: "Terms of Service | ProCVMaker", canonical: "https://www.procvmaker.online/terms", index: false }
 ];
 
-const extract = (html, pattern) => html.match(pattern)?.[1]?.trim() ?? "";
+const decodeHtml = (value) => value
+  .replaceAll("&amp;", "&")
+  .replaceAll("&quot;", '"')
+  .replaceAll("&#39;", "'")
+  .replaceAll("&lt;", "<")
+  .replaceAll("&gt;", ">");
+const extract = (html, pattern) => decodeHtml(html.match(pattern)?.[1]?.trim() ?? "");
 const results = [];
 
 for (const page of pages) {
