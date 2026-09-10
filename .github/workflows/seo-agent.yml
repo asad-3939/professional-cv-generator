@@ -1,0 +1,58 @@
+name: ProCVMaker SEO Agent
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "index.html"
+      - "public/robots.txt"
+      - "public/sitemap.xml"
+      - "scripts/seo-*.mjs"
+      - "scripts/generate-seo-pages.mjs"
+      - "vercel.json"
+      - "package.json"
+  schedule:
+    - cron: "15 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  build-audit:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Audit generated SEO pages
+        run: npm run seo:audit
+      - name: Upload SEO report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-build-report
+          path: seo-report.md
+          if-no-files-found: warn
+
+  live-audit:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Audit production SEO
+        run: npm run seo:audit:live
+      - name: Upload SEO report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-live-report
+          path: seo-report.md
+          if-no-files-found: warn
