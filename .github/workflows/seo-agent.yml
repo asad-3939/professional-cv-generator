@@ -27,7 +27,8 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
       - run: npm run build
       - name: Audit generated SEO pages
         run: npm run seo:audit
