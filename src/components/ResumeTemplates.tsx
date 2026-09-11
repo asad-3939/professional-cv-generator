@@ -1,6 +1,7 @@
 import React from "react";
 import { Mail, Phone, MapPin, Linkedin, Github, Globe, Award, Calendar, ToggleLeft } from "lucide-react";
 import { CVData, DesignConfig } from "../types";
+import { formatCVDateRange } from "../utils/dateUtils";
 
 interface ResumeTemplatesProps {
   data: CVData;
@@ -203,7 +204,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                         </td>
                         <td style={{ textAlign: 'right', verticalAlign: 'bottom', width: '150px' }}>
                           <span className="text-[11px] font-semibold text-slate-500" style={{ whiteSpace: 'nowrap' }}>
-                            {exp.startDate} – {exp.current ? "Present" : exp.endDate}
+                            {formatCVDateRange(exp.startDate, exp.endDate, exp.current)}
                           </span>
                         </td>
                       </tr>
@@ -249,7 +250,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                         </td>
                         <td style={{ textAlign: 'right', verticalAlign: 'bottom', width: '150px' }}>
                           <span className="text-[11px] font-semibold text-slate-550 shrink-0" style={{ whiteSpace: 'nowrap' }}>
-                            {edu.startDate} – {edu.current ? "Present" : edu.endDate}
+                            {formatCVDateRange(edu.startDate, edu.endDate, edu.current)}
                           </span>
                         </td>
                       </tr>
@@ -463,7 +464,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                             </td>
                             <td style={{ textAlign: 'right', verticalAlign: 'bottom', width: '150px' }}>
                               <span className="text-slate-400 font-normal text-[11px]" style={{ whiteSpace: 'nowrap' }}>
-                                {exp.startDate} – {exp.current ? "Present" : exp.endDate}
+                                {formatCVDateRange(exp.startDate, exp.endDate, exp.current)}
                               </span>
                             </td>
                           </tr>
@@ -500,7 +501,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                             </td>
                             <td style={{ textAlign: 'right', verticalAlign: 'bottom', width: '150px' }}>
                               <span className="text-slate-400 font-normal text-[11px]" style={{ whiteSpace: 'nowrap' }}>
-                                {edu.startDate} – {edu.current ? "Present" : edu.endDate}
+                                {formatCVDateRange(edu.startDate, edu.endDate, edu.current)}
                               </span>
                             </td>
                           </tr>
@@ -716,7 +717,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                   <div className="flex justify-between items-baseline">
                     <h3 className="font-bold text-slate-900 text-xs">{exp.position}</h3>
                     <span className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100 px-1.5 rounded">
-                      {exp.startDate} – {exp.current ? "Present" : exp.endDate}
+                      {formatCVDateRange(exp.startDate, exp.endDate, exp.current)}
                     </span>
                   </div>
                   <div className="text-slate-500 font-semibold mb-1 text-[11px]">
@@ -741,7 +742,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                 <div key={edu.id}>
                   <div className="flex justify-between items-baseline">
                     <h3 className="font-bold text-slate-900 text-[13px]">{edu.degree} in {edu.field}</h3>
-                    <span className="text-[10px] font-semibold text-slate-500">{edu.startDate} – {edu.current ? "Present" : edu.endDate}</span>
+                    <span className="text-[10px] font-semibold text-slate-500">{formatCVDateRange(edu.startDate, edu.endDate, edu.current)}</span>
                   </div>
                   <div className="text-slate-600 text-[11px] font-medium leading-tight mb-1">
                     {edu.school}, {edu.location}
@@ -869,7 +870,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                   <div className="flex justify-between font-bold text-white text-[11px]">
                     <span className="font-sans">{exp.position}</span>
                     <span className="text-slate-500 text-[10px] font-mono">
-                      {exp.startDate} – {exp.current ? "Present" : exp.endDate}
+                      {formatCVDateRange(exp.startDate, exp.endDate, exp.current)}
                     </span>
                   </div>
                   <div className="text-slate-500 font-semibold mb-1 text-[10px]">
@@ -897,7 +898,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                   <div className="absolute left-[-3px] top-1.5 w-1.5 h-1.5 rounded-full bg-slate-700"></div>
                   <div className="flex justify-between text-white font-bold text-[11px]">
                     <span className="font-sans">{edu.degree} in {edu.field}</span>
-                    <span className="text-slate-500 font-mono text-[10px]">{edu.startDate} – {edu.endDate}</span>
+                    <span className="text-slate-500 font-mono text-[10px]">{formatCVDateRange(edu.startDate, edu.endDate, edu.current)}</span>
                   </div>
                   <div className="text-slate-500 text-[10px] font-sans">
                     {edu.school}, {edu.location}

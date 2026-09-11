@@ -5,8 +5,7 @@ import {
   ExternalLink, Layers, ChevronRight, ShieldCheck, Target, MoreHorizontal, RotateCcw
 } from "lucide-react";
 import { CVData, DesignConfig, WorkExperience, Education, Project, Certification, Language, TemplateId } from "../types";
-import { doc, setDoc, arrayUnion } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { MonthYearPicker } from "./common/MonthYearPicker";
 
 interface CVFormProps {
   data: CVData;
@@ -72,7 +71,20 @@ export const CVForm: React.FC<CVFormProps> = ({
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
   const [isSuggestingSkills, setIsSuggestingSkills] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [retryAction, setRetryAction] = useState<(() => void) | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const summaryAbortRef = useRef<AbortController | null>(null);
+  const polishAbortRef = useRef<AbortController | null>(null);
+  const skillsAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      summaryAbortRef.current?.abort();
+      polishAbortRef.current?.abort();
+      skillsAbortRef.current?.abort();
+    };
+  }, []);
 
   // Tabs navigation config
   const tabs = [
@@ -111,17 +123,29 @@ export const CVForm: React.FC<CVFormProps> = ({
       return;
     }
 
+    summaryAbortRef.current?.abort();
+    const controller = new AbortController();
+    summaryAbortRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     setIsGeneratingSummary(true);
     setErrorMsg(null);
+    setRetryAction(null);
 
     try {
-      const highlights = data.experience.map(exp => `${exp.position} at ${exp.company}`);
+      // Minimum relevant context for fast, focused generation
+      const highlights = (data.experience || [])
+        .slice(0, 3)
+        .map(exp => `${exp.position || "Role"} at ${exp.company || "Company"}`);
+      const keySkills = (data.skills || []).slice(0, 8);
+
       const response = await fetch("/api/cv/summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           jobTitle,
-          skills: data.skills,
+          skills: keySkills,
           experiences: highlights
         })
       });
@@ -143,23 +167,17 @@ export const CVForm: React.FC<CVFormProps> = ({
         const updatedData = { ...data, summary: resData.summary };
         onChange(updatedData);
         setSuccessMsg("Generated professional summary tailored to your experience.");
-
-        if (currentUser) {
-          setDoc(doc(db, "users", currentUser.uid), {
-            cvData: updatedData,
-            aiGenerations: arrayUnion({
-              timestamp: new Date().toISOString(),
-              type: "Summary Generation",
-              description: `Generated summary for "${updatedData.personal.jobTitle || "Resume"}"`,
-              details: resData.summary.substring(0, 150) + "..."
-            })
-          }, { merge: true }).catch(console.error);
-        }
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || "An error occurred while generating summary.");
+      if (err.name === "AbortError") {
+        setErrorMsg("Summary generation took too long. Click Retry to try again.");
+      } else {
+        setErrorMsg(err.message || "An error occurred while generating summary.");
+      }
+      setRetryAction(() => () => handleAutoGenerateSummary());
     } finally {
+      clearTimeout(timeoutId);
       setIsGeneratingSummary(false);
     }
   };
@@ -171,19 +189,26 @@ export const CVForm: React.FC<CVFormProps> = ({
       return;
     }
 
+    polishAbortRef.current?.abort();
+    const controller = new AbortController();
+    polishAbortRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     setPolishingId(id);
     setErrorMsg(null);
+    setRetryAction(null);
 
     try {
       const expItem = data.experience.find(exp => exp.id === id);
       const response = await fetch("/api/cv/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
-          text: currentText,
-          position: expItem?.position,
-          company: expItem?.company,
-          jobTitle: data.personal.jobTitle
+          text: currentText.slice(0, 1000), // Trim oversized text
+          position: expItem?.position || "",
+          company: expItem?.company || "",
+          jobTitle: data.personal.jobTitle || ""
         })
       });
 
@@ -209,24 +234,18 @@ export const CVForm: React.FC<CVFormProps> = ({
         });
         const updatedData = { ...data, experience: updatedExp };
         onChange(updatedData);
-
-        if (currentUser) {
-          const expItem = data.experience.find(exp => exp.id === id);
-          setDoc(doc(db, "users", currentUser.uid), {
-            cvData: updatedData,
-            aiGenerations: arrayUnion({
-              timestamp: new Date().toISOString(),
-              type: "Bullet Point Enhancement",
-              description: `Enhanced bullets for "${expItem?.position || "Role"}" at "${expItem?.company || "Company"}"`,
-              details: resData.polishedText.substring(0, 150) + "..."
-            })
-          }, { merge: true }).catch(console.error);
-        }
+        setSuccessMsg("Polished experience bullets with action-oriented phrasing.");
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || "Failed to enhance bullet points.");
+      if (err.name === "AbortError") {
+        setErrorMsg("Polishing took too long. Click Retry to try again.");
+      } else {
+        setErrorMsg(err.message || "Failed to enhance bullet points.");
+      }
+      setRetryAction(() => () => handleEnhanceExperience(id, currentText));
     } finally {
+      clearTimeout(timeoutId);
       setPolishingId(null);
     }
   };
@@ -240,13 +259,20 @@ export const CVForm: React.FC<CVFormProps> = ({
       return;
     }
 
+    skillsAbortRef.current?.abort();
+    const controller = new AbortController();
+    skillsAbortRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     setIsSuggestingSkills(true);
     setErrorMsg(null);
+    setRetryAction(null);
 
     try {
       const response = await fetch("/api/cv/suggest-skills", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ jobTitle })
       });
 
@@ -288,22 +314,16 @@ export const CVForm: React.FC<CVFormProps> = ({
 
       onChange(updatedData);
       setSuccessMsg(`Added ${freshSkills.length} relevant skill keywords.`);
-
-      if (currentUser) {
-        setDoc(doc(db, "users", currentUser.uid), {
-          cvData: updatedData,
-          aiGenerations: arrayUnion({
-            timestamp: new Date().toISOString(),
-            type: "Skill Suggestions",
-            description: `Suggested skills for "${jobTitle}"`,
-            details: freshSkills.slice(0, 5).join(", ")
-          })
-        }, { merge: true }).catch(console.error);
-      }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || "Could not suggest skills.");
+      if (err.name === "AbortError") {
+        setErrorMsg("Skill suggestions timed out. Click Retry to try again.");
+      } else {
+        setErrorMsg(err.message || "Could not suggest skills.");
+      }
+      setRetryAction(() => () => handleSuggestSkills());
     } finally {
+      clearTimeout(timeoutId);
       setIsSuggestingSkills(false);
     }
   };
@@ -611,9 +631,31 @@ export const CVForm: React.FC<CVFormProps> = ({
         
         {/* Error notification */}
         {errorMsg && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-lg flex items-center justify-between">
-            <span>{errorMsg}</span>
-            <button onClick={() => setErrorMsg(null)} className="text-rose-400 hover:text-white font-bold ml-2">×</button>
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-lg flex items-center justify-between gap-2">
+            <span className="flex-1">{errorMsg}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              {retryAction && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const action = retryAction;
+                    setRetryAction(null);
+                    setErrorMsg(null);
+                    action();
+                  }}
+                  className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-[11px] font-semibold rounded cursor-pointer transition border border-rose-500/30"
+                >
+                  Retry
+                </button>
+              )}
+              <button 
+                onClick={() => { setErrorMsg(null); setRetryAction(null); }} 
+                className="text-rose-400 hover:text-white font-bold ml-1 text-sm leading-none"
+                aria-label="Dismiss error"
+              >
+                ×
+              </button>
+            </div>
           </div>
         )}
 
@@ -981,52 +1023,35 @@ export const CVForm: React.FC<CVFormProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Location</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. San Francisco, CA"
-                        value={exp.location}
-                        onChange={(e) => updateExperienceItem(exp.id, "location", e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[11px] font-medium text-slate-400 block mb-1">Start Date</label>
-                        <input
-                          type="month"
-                          value={exp.startDate}
-                          onChange={(e) => updateExperienceItem(exp.id, "startDate", e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-slate-400 block mb-1">End Date</label>
-                        <input
-                          type="month"
-                          value={exp.endDate}
-                          disabled={exp.current}
-                          onChange={(e) => updateExperienceItem(exp.id, "endDate", e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-40"
-                        />
-                      </div>
-                    </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-400 block mb-1">Location</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. San Francisco, CA"
+                      value={exp.location}
+                      onChange={(e) => updateExperienceItem(exp.id, "location", e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
                   </div>
 
-                  <div className="flex justify-between items-center text-xs">
-                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={exp.current}
-                        onChange={(e) => updateExperienceItem(exp.id, "current", e.target.checked)}
-                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer"
-                      />
-                      <span>Currently working here</span>
-                    </label>
+                  <div className="pt-1">
+                    <MonthYearPicker
+                      startDate={exp.startDate}
+                      endDate={exp.endDate}
+                      isCurrent={exp.current}
+                      onStartDateChange={(val) => updateExperienceItem(exp.id, "startDate", val)}
+                      onEndDateChange={(val) => updateExperienceItem(exp.id, "endDate", val)}
+                      onCurrentChange={(val) => updateExperienceItem(exp.id, "current", val)}
+                      currentCheckboxLabel="I currently work here"
+                      startDateLabel="Start Date"
+                      endDateLabel="End Date"
+                      idPrefix={`exp_${exp.id}`}
+                    />
+                  </div>
 
+                  <div className="flex justify-end items-center text-xs">
                     <button
+                      type="button"
                       onClick={() => handleEnhanceExperience(exp.id, exp.description)}
                       disabled={polishingId === exp.id}
                       className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600/15 hover:bg-indigo-600/30 text-indigo-300 disabled:opacity-50 border border-indigo-500/25 rounded-lg text-xs font-semibold cursor-pointer transition"
@@ -1139,48 +1164,31 @@ export const CVForm: React.FC<CVFormProps> = ({
                         className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[11px] font-medium text-slate-400 block mb-1">Start Date</label>
-                        <input
-                          type="month"
-                          value={edu.startDate}
-                          onChange={(e) => updateEducationItem(edu.id, "startDate", e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-slate-400 block mb-1">Graduation Date</label>
-                        <input
-                          type="month"
-                          value={edu.endDate}
-                          disabled={edu.current}
-                          onChange={(e) => updateEducationItem(edu.id, "endDate", e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-40"
-                        />
-                      </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-slate-400 block mb-1">Location</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Stanford, CA"
+                        value={edu.location}
+                        onChange={(e) => updateEducationItem(edu.id, "location", e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      />
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center text-xs">
-                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={edu.current}
-                        onChange={(e) => updateEducationItem(edu.id, "current", e.target.checked)}
-                        className="w-3.5 h-3.5 rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer"
-                      />
-                      <span>Currently studying here</span>
-                    </label>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Location (e.g. Stanford, CA)"
-                        value={edu.location}
-                        onChange={(e) => updateEducationItem(edu.id, "location", e.target.value)}
-                        className="px-2.5 py-1 bg-slate-950 rounded-lg border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
+                  <div className="pt-1">
+                    <MonthYearPicker
+                      startDate={edu.startDate}
+                      endDate={edu.endDate}
+                      isCurrent={edu.current}
+                      onStartDateChange={(val) => updateEducationItem(edu.id, "startDate", val)}
+                      onEndDateChange={(val) => updateEducationItem(edu.id, "endDate", val)}
+                      onCurrentChange={(val) => updateEducationItem(edu.id, "current", val)}
+                      currentCheckboxLabel="I currently study here"
+                      startDateLabel="Start Date"
+                      endDateLabel="Graduation Date"
+                      idPrefix={`edu_${edu.id}`}
+                    />
                   </div>
 
                   <div>

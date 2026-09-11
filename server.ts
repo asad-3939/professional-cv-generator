@@ -217,10 +217,15 @@ const PRODUCTION_AI_MODELS: AIModelSource[] = [
   "gemini-3.5-flash-lite"
 ];
 
-async function generateContentSafe(ai: GoogleGenAI, params: any): Promise<SafeGenerationResult> {
+async function generateContentSafe(
+  ai: GoogleGenAI, 
+  params: any, 
+  customModels?: AIModelSource[]
+): Promise<SafeGenerationResult> {
   let lastError: any = null;
+  const modelsToTry = customModels || PRODUCTION_AI_MODELS;
 
-  for (const model of PRODUCTION_AI_MODELS) {
+  for (const model of modelsToTry) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const response = await ai.models.generateContent({
@@ -246,7 +251,7 @@ async function generateContentSafe(ai: GoogleGenAI, params: any): Promise<SafeGe
       }
     }
     // Small delay before trying fallback model
-    await new Promise(res => setTimeout(res, 250));
+    await new Promise(res => setTimeout(res, 200));
   }
 
   throw lastError;
@@ -637,6 +642,7 @@ app.get("/api/health", (_req, res) => {
 
 // 1. Polish Bullet Points / Job Description
 app.post("/api/cv/polish", async (req, res) => {
+  const startTime = Date.now();
   try {
     const { text, jobTitle, company, position } = req.body;
     if (!text) {
@@ -664,16 +670,17 @@ Raw Text:
 "${text}"`;
 
       const { response, analysisSource } = await generateContentSafe(ai, {
-        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           temperature: 0.7,
         },
-      });
+      }, ["gemini-3.5-flash-lite", "gemini-3.8-flash"]);
 
       const polishedText = response?.text || "";
       if (polishedText.trim()) {
-        res.status(200).json({ polishedText: polishedText.trim(), analysisSource });
+        const duration = Date.now() - startTime;
+        console.log(`[AI Latency] /api/cv/polish completed in ${duration}ms via ${analysisSource}`);
+        res.status(200).json({ polishedText: polishedText.trim(), analysisSource, latencyMs: duration });
         return;
       }
     } catch (aiErr) {
@@ -682,7 +689,9 @@ Raw Text:
 
     // Fallback if AI unavailable
     const fallbackText = ruleBasedPolishText(text);
-    res.status(200).json({ polishedText: fallbackText, analysisSource: "heuristic" });
+    const duration = Date.now() - startTime;
+    console.log(`[AI Latency] /api/cv/polish completed in ${duration}ms via heuristic fallback`);
+    res.status(200).json({ polishedText: fallbackText, analysisSource: "heuristic", latencyMs: duration });
   } catch (error: any) {
     console.error("Error in /api/cv/polish:", error);
     res.status(200).json({ polishedText: ruleBasedPolishText(req.body?.text || ""), analysisSource: "heuristic" });
@@ -691,6 +700,7 @@ Raw Text:
 
 // 2. Generate Professional Summary
 app.post("/api/cv/summary", async (req, res) => {
+  const startTime = Date.now();
   try {
     const { jobTitle, skills, experiences } = req.body;
     if (!jobTitle) {
@@ -714,16 +724,17 @@ Guidelines:
 - Return ONLY the summary text block. Do not include headings, notes, introductory statements, or chat filler.`;
 
       const { response, analysisSource } = await generateContentSafe(ai, {
-        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           temperature: 0.7,
         },
-      });
+      }, ["gemini-3.5-flash-lite", "gemini-3.8-flash"]);
 
       const summary = response?.text || "";
       if (summary.trim()) {
-        res.status(200).json({ summary: summary.trim(), analysisSource });
+        const duration = Date.now() - startTime;
+        console.log(`[AI Latency] /api/cv/summary completed in ${duration}ms via ${analysisSource}`);
+        res.status(200).json({ summary: summary.trim(), analysisSource, latencyMs: duration });
         return;
       }
     } catch (aiErr) {
@@ -732,7 +743,9 @@ Guidelines:
 
     // Fallback if AI is unavailable
     const fallbackSummary = ruleBasedSummary(jobTitle, skills);
-    res.status(200).json({ summary: fallbackSummary, analysisSource: "heuristic" });
+    const duration = Date.now() - startTime;
+    console.log(`[AI Latency] /api/cv/summary completed in ${duration}ms via heuristic fallback`);
+    res.status(200).json({ summary: fallbackSummary, analysisSource: "heuristic", latencyMs: duration });
   } catch (error: any) {
     console.error("Error in /api/cv/summary:", error);
     res.status(200).json({ summary: ruleBasedSummary(req.body?.jobTitle || "Professional", req.body?.skills || []), analysisSource: "heuristic" });
@@ -741,6 +754,7 @@ Guidelines:
 
 // 3. Recommended Skills and Credentials by Job Title
 app.post("/api/cv/suggest-skills", async (req, res) => {
+  const startTime = Date.now();
   const fallbackSkills = [
     "Project Management",
     "Team Collaboration",
@@ -768,7 +782,6 @@ app.post("/api/cv/suggest-skills", async (req, res) => {
 Format the output as a clean JSON objects list.`;
 
       const { response, analysisSource } = await generateContentSafe(ai, {
-        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -789,7 +802,7 @@ Format the output as a clean JSON objects list.`;
             required: ["skills", "certifications"]
           }
         }
-      });
+      }, ["gemini-3.5-flash-lite", "gemini-3.8-flash"]);
 
       let resultText = response?.text || "{}";
       if (resultText.includes("```")) {
@@ -799,17 +812,21 @@ Format the output as a clean JSON objects list.`;
 
       const data = JSON.parse(resultText);
       if (data.skills && Array.isArray(data.skills)) {
-        res.status(200).json({ ...data, analysisSource });
+        const duration = Date.now() - startTime;
+        console.log(`[AI Latency] /api/cv/suggest-skills completed in ${duration}ms via ${analysisSource}`);
+        res.status(200).json({ ...data, analysisSource, latencyMs: duration });
         return;
       }
     } catch (aiErr) {
       console.warn("Gemini suggest-skills notice, returning safe recommendation list:", aiErr);
     }
 
+    const duration = Date.now() - startTime;
     res.status(200).json({
       skills: fallbackSkills,
       certifications: fallbackCerts,
-      analysisSource: "heuristic"
+      analysisSource: "heuristic",
+      latencyMs: duration
     });
   } catch (error: any) {
     console.error("Error in /api/cv/suggest-skills:", error);

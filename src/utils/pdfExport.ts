@@ -169,134 +169,158 @@ export async function exportOptimizedPDF(
  * - Resulting PDF is extremely lightweight (~40 KB - 120 KB).
  * - 100% compliant with ATS systems (Greenhouse, Lever, Workday, Taleo).
  */
-export function exportVectorATSPDF(
+export async function exportVectorATSPDF(
   elementId: string = "cv-pdf-render-target",
   options: ExportOptions = {}
-): void {
+): Promise<void> {
   const targetElement = document.getElementById(elementId);
   if (!targetElement) {
+    const err = new Error("Preview element target not found.");
     if (options.onError) {
-      options.onError(new Error("Preview element target not found."));
+      options.onError(err);
     }
-    return;
+    throw err;
   }
 
   const { fileName = "Professional" } = options;
 
-  // Create an invisible sandboxed iframe for vector printing
-  const iframe = document.createElement("iframe");
-  iframe.style.position = "fixed";
-  iframe.style.right = "0";
-  iframe.style.bottom = "0";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "0";
-  iframe.style.visibility = "hidden";
-  document.body.appendChild(iframe);
+  return new Promise<void>((resolve, reject) => {
+    // Create an invisible sandboxed iframe for vector printing
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
 
-  const doc = iframe.contentWindow?.document;
-  if (!doc) {
-    document.body.removeChild(iframe);
-    return;
-  }
-
-  // Gather parent document styles
-  let stylesHtml = "";
-  for (let i = 0; i < document.styleSheets.length; i++) {
-    try {
-      const sheet = document.styleSheets[i];
-      const rules = sheet.cssRules || sheet.rules;
-      if (rules) {
-        let cssText = "";
-        for (let j = 0; j < rules.length; j++) {
-          cssText += rules[j].cssText + "\n";
+    const cleanup = () => {
+      setTimeout(() => {
+        try {
+          if (iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe);
+          }
+        } catch {
+          // ignore
         }
-        stylesHtml += `<style>${cssText}</style>`;
-      }
-    } catch {
-      // Ignore cross-origin sheets
-    }
-  }
+      }, 1000);
+    };
 
-  const fontLinks = `
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
-  `;
-
-  const printOverrides = `
-    <style>
-      @page {
-        size: A4 portrait;
-        margin: 0;
-      }
-      *, *::before, *::after {
-        box-sizing: border-box;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        color-adjust: exact !important;
-      }
-      html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 210mm !important;
-        min-height: 297mm !important;
-        background: #ffffff !important;
-        font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        -webkit-font-smoothing: antialiased;
-      }
-      #cv-pdf-render-target {
-        width: 210mm !important;
-        min-height: 297mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        transform: none !important;
-        background: #ffffff !important;
-        overflow: visible !important;
-      }
-    </style>
-  `;
-
-  doc.open();
-  doc.write(`
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <title>${fileName}_CV</title>
-        ${fontLinks}
-        ${stylesHtml}
-        ${printOverrides}
-      </head>
-      <body>
-        ${targetElement.outerHTML}
-      </body>
-    </html>
-  `);
-  doc.close();
-
-  setTimeout(() => {
     try {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      if (options.onSuccess) {
-        options.onSuccess("Launched ATS-compliant Vector PDF print window. Select 'Save as PDF' to export.");
+      const doc = iframe.contentWindow?.document;
+      if (!doc) {
+        cleanup();
+        const err = new Error("Failed to initialize print document stream.");
+        if (options.onError) options.onError(err);
+        reject(err);
+        return;
       }
-    } catch (err) {
-      console.error("Print dialog failed:", err);
+
+      // Gather parent document styles
+      let stylesHtml = "";
+      for (let i = 0; i < document.styleSheets.length; i++) {
+        try {
+          const sheet = document.styleSheets[i];
+          const rules = sheet.cssRules || sheet.rules;
+          if (rules) {
+            let cssText = "";
+            for (let j = 0; j < rules.length; j++) {
+              cssText += rules[j].cssText + "\n";
+            }
+            stylesHtml += `<style>${cssText}</style>`;
+          }
+        } catch {
+          // Ignore cross-origin sheets
+        }
+      }
+
+      const fontLinks = `
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
+      `;
+
+      const printOverrides = `
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 0;
+          }
+          *, *::before, *::after {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            background: #ffffff !important;
+            font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+          }
+          #cv-pdf-render-target {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            transform: none !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+          }
+        </style>
+      `;
+
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <title>${fileName}_CV</title>
+            ${fontLinks}
+            ${stylesHtml}
+            ${printOverrides}
+          </head>
+          <body>
+            ${targetElement.outerHTML}
+          </body>
+        </html>
+      `);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          if (options.onSuccess) {
+            options.onSuccess("Launched ATS-compliant Vector PDF print window. Select 'Save as PDF' to export.");
+          }
+          cleanup();
+          resolve();
+        } catch (err: any) {
+          console.error("Print dialog failed:", err);
+          cleanup();
+          if (options.onError) {
+            options.onError(err as Error);
+          }
+          reject(err);
+        }
+      }, 350);
+    } catch (err: any) {
+      cleanup();
       if (options.onError) {
         options.onError(err as Error);
       }
-    } finally {
-      setTimeout(() => {
-        if (iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe);
-        }
-      }, 3000);
+      reject(err);
     }
-  }, 350);
+  });
 }
 
 /**
