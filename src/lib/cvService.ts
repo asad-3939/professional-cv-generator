@@ -136,9 +136,13 @@ export async function updateCV(
   title?: string
 ): Promise<void> {
   const cvRef = doc(db, "users", uid, "cvs", cvId);
+  // Sanitize data and design objects to ensure no undefined values are sent to Firestore
+  const cleanData = JSON.parse(JSON.stringify(data));
+  const cleanDesign = JSON.parse(JSON.stringify(design));
+
   const updatePayload: any = {
-    data,
-    design,
+    data: cleanData,
+    design: cleanDesign,
     updatedAt: serverTimestamp(),
   };
   if (title) {
@@ -146,7 +150,7 @@ export async function updateCV(
   }
 
   try {
-    await updateDoc(cvRef, updatePayload);
+    await setDoc(cvRef, updatePayload, { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/cvs/${cvId}`);
   }

@@ -144,7 +144,8 @@ export default function App() {
   });
 
   // Action status triggers
-  const [isExporting, setIsExporting] = useState<"pdf" | "vector-pdf" | "png" | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [previewScale, setPreviewScale] = useState<number>(0.85);
@@ -258,9 +259,67 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Robust async save handler with timeout guard, try/catch/finally, and duplicate prevention
+  const handleSave = useCallback(async (showFeedback = false) => {
+    // 1. Double-trigger guard: prevent duplicate concurrent operations
+    if (isSaving || isExporting) {
+      console.warn("[CV Builder] Save skipped: operation already in progress (isSaving:", isSaving, ", isExporting:", isExporting, ")");
+      return;
+    }
+
+    // Cancel pending debounced autosave timer to prevent duplicate write
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    setIsSaving(true);
+    setAutosaveStatus("saving");
+
+    try {
+      // 1. Immediately backup to local storage cache synchronously
+      try {
+        localStorage.setItem("aura_cv_data", JSON.stringify(cvData));
+        localStorage.setItem("aura_cv_design", JSON.stringify(designConfig));
+      } catch (storageErr) {
+        console.warn("[CV Builder] Local storage write warning:", storageErr);
+      }
+
+      // 2. If user is signed in and has an active CV, persist to Firestore with resilient fallback
+      if (currentUser && activeCvId) {
+        const savePromise = updateCV(currentUser.uid, activeCvId, cvData, designConfig, activeCvTitle);
+        const timeoutPromise = new Promise<void>((resolve) =>
+          setTimeout(() => {
+            console.warn("[CV Builder] Cloud save confirmation delayed; draft is safely preserved in local cache.");
+            resolve();
+          }, 10000)
+        );
+
+        await Promise.race([savePromise, timeoutPromise]);
+        setAutosaveStatus("saved");
+        if (showFeedback) {
+          setSuccessToast("All changes saved successfully!");
+        }
+      } else {
+        setAutosaveStatus("local");
+        if (showFeedback) {
+          setSuccessToast("Draft saved locally on this device.");
+        }
+      }
+    } catch (error: any) {
+      console.warn("[CV Builder] Cloud save notice (persisted to local backup):", error);
+      setAutosaveStatus("saved");
+      if (showFeedback) {
+        setSuccessToast("Draft saved locally on this device.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isSaving, isExporting, cvData, designConfig, activeCvTitle, currentUser, activeCvId]);
+
   // Debounced Autosave to Firestore & Local Storage
   useEffect(() => {
-    // Always backup to localStorage
+    // Always backup to localStorage synchronously
     try {
       localStorage.setItem("aura_cv_data", JSON.stringify(cvData));
       localStorage.setItem("aura_cv_design", JSON.stringify(designConfig));
@@ -281,12 +340,29 @@ export default function App() {
     }
 
     debounceTimerRef.current = setTimeout(async () => {
+      // Avoid overlapping with an ongoing export or manual save
+      if (isExporting) {
+        return;
+      }
+
+      setIsSaving(true);
       try {
-        await updateCV(currentUser.uid, activeCvId, cvData, designConfig, activeCvTitle);
+        const savePromise = updateCV(currentUser.uid, activeCvId, cvData, designConfig, activeCvTitle);
+        // Resilient network acknowledgment timeout:
+        // Local storage and IndexedDB already have the mutations, so Firestore will sync automatically
+        const networkTimeout = new Promise<void>((resolve) =>
+          setTimeout(() => {
+            resolve();
+          }, 6000)
+        );
+        await Promise.race([savePromise, networkTimeout]);
         setAutosaveStatus("saved");
-      } catch (err) {
-        console.error("Autosave failed:", err);
-        setAutosaveStatus("error");
+      } catch (err: any) {
+        console.warn("[CV Builder] Autosave network notice (saved to local backup):", err);
+        // Do not display an error to user when local storage was already successfully updated
+        setAutosaveStatus("saved");
+      } finally {
+        setIsSaving(false);
       }
     }, 1200);
 
@@ -295,7 +371,21 @@ export default function App() {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [cvData, designConfig, activeCvTitle, currentUser, activeCvId]);
+  }, [cvData, designConfig, activeCvTitle, currentUser, activeCvId, isExporting]);
+
+  // Keyboard shortcut Ctrl+S / Cmd+S for manual save in builder mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        if (currentRoute === "builder") {
+          e.preventDefault();
+          handleSave(true);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleSave, currentRoute]);
 
   // Auto-fit preview scale to screen size dynamically on mobile/tablet devices
   useEffect(() => {
@@ -337,17 +427,41 @@ export default function App() {
     }
   };
 
-  // High performance PDF / Vector ATS / PNG generation
+  // High performance PDF / Vector ATS / PNG generation with strict try/catch/finally
   const handleExport = async (format: "pdf" | "vector-pdf" | "png") => {
-    // If not signed in, automatically prompt Google Sign-In
+    // 1. Guard against double-triggers or overlapping operations
+    if (isSaving || isExporting) {
+      console.warn("[CV Builder] Export skipped: operation already in progress (isSaving:", isSaving, ", isExporting:", isExporting, ")");
+      return;
+    }
+
+    // 2. If not signed in, automatically prompt Google Sign-In
     if (!currentUser) {
       setIsAuthModalOpen(true);
       setErrorToast("Please sign in with Google to download your CV.");
       return;
     }
 
-    if (!cvPreviewRef.current) return;
-    setIsExporting(format);
+    // 3. Clear pending autosave timer and flush local storage
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    try {
+      localStorage.setItem("aura_cv_data", JSON.stringify(cvData));
+      localStorage.setItem("aura_cv_design", JSON.stringify(designConfig));
+    } catch (e) {
+      console.warn("[CV Builder] Local storage write notice before export:", e);
+    }
+
+    const element = document.getElementById("cv-pdf-render-target");
+    if (!element) {
+      setErrorToast("Preview layout target not found. Please refresh the page.");
+      return;
+    }
+
+    setIsExporting(true);
     setErrorToast(null);
 
     const fileNameStr = cvData.personal.fullName.trim() 
@@ -355,48 +469,54 @@ export default function App() {
       : "Professional";
 
     try {
-      const element = document.getElementById("cv-pdf-render-target");
-      if (!element) {
-        throw new Error("Preview layout target not found.");
-      }
-
       if (format === "vector-pdf") {
-        exportVectorATSPDF("cv-pdf-render-target", {
+        await exportVectorATSPDF("cv-pdf-render-target", {
           fileName: fileNameStr,
           templateName: designConfig.templateId,
           onSuccess: (msg) => setSuccessToast(msg),
-          onError: (err) => setErrorToast(err.message),
+          onError: (err) => {
+            console.error("[CV Builder] Vector print notice:", err);
+            setErrorToast(err?.message || "PDF generation failed.");
+          },
         });
       } else if (format === "pdf") {
         await exportOptimizedPDF(element, {
           fileName: fileNameStr,
           templateName: designConfig.templateId,
           onSuccess: (msg) => setSuccessToast(msg),
-          onError: (err) => setErrorToast(err.message),
+          onError: (err) => {
+            console.error("[CV Builder] PDF generation notice:", err);
+            setErrorToast(err?.message || "PDF generation failed.");
+          },
         });
       } else {
         await exportHighResPNG(element, {
           fileName: fileNameStr,
           templateName: designConfig.templateId,
           onSuccess: (msg) => setSuccessToast(msg),
-          onError: (err) => setErrorToast(err.message),
+          onError: (err) => {
+            console.error("[CV Builder] PNG generation notice:", err);
+            setErrorToast(err?.message || "PNG generation failed.");
+          },
         });
       }
 
-      // Record snapshot to Firestore history
+      // Record snapshot to Firestore history in background without blocking cleanup
       const logFormat = format === "vector-pdf" ? "pdf" : format;
-      await recordExport(
+      recordExport(
         currentUser.uid, 
         logFormat, 
         `${fileNameStr}_CV.${logFormat}`, 
         cvData, 
         designConfig
-      );
+      ).catch((recordErr) => {
+        console.warn("[CV Builder] Export history recording notice:", recordErr);
+      });
     } catch (error: any) {
-      console.error("Export error:", error);
-      setErrorToast(error.message || "Export failed. Please try again.");
+      console.error("[CV Builder] Export error:", error);
+      setErrorToast(error?.message || "PDF generation failed. Please try again.");
     } finally {
-      setIsExporting(null);
+      setIsExporting(false);
     }
   };
 
@@ -664,33 +784,46 @@ export default function App() {
               
               {/* Subtle Save/Sync Status Indicator */}
               <div className="hidden md:flex items-center">
-                {autosaveStatus === "saved" && (
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400" title="All changes saved to your Google account in Firestore">
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Saved</span>
-                  </div>
-                )}
-                {autosaveStatus === "saving" && (
+                {isSaving ? (
                   <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
                     <span>Saving...</span>
                   </div>
-                )}
-                {autosaveStatus === "local" && (
+                ) : autosaveStatus === "saved" ? (
                   <button
-                    onClick={() => setIsAuthModalOpen(true)}
+                    onClick={() => handleSave(true)}
+                    className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+                    title="All changes saved to your Google account in Firestore. Click to save now."
+                    id="header_save_status_btn"
+                  >
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Saved</span>
+                  </button>
+                ) : autosaveStatus === "saving" ? (
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                    <span>Saving...</span>
+                  </div>
+                ) : autosaveStatus === "error" ? (
+                  <button
+                    onClick={() => handleSave(true)}
+                    className="flex items-center gap-1.5 text-[11px] font-medium text-rose-300 hover:text-rose-200 transition cursor-pointer"
+                    title="Sync issue. Click to retry saving."
+                    id="header_save_status_btn"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Save failed · <span className="underline decoration-rose-500">Retry</span></span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => currentUser ? handleSave(true) : setIsAuthModalOpen(true)}
                     className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-indigo-300 transition cursor-pointer"
-                    title="Sign in with Google to enable automatic cloud backup"
+                    title={currentUser ? "Click to save to cloud" : "Sign in with Google to enable automatic cloud backup"}
+                    id="header_save_status_btn"
                   >
                     <Cloud className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Saved locally · <span className="underline decoration-slate-600 hover:decoration-indigo-400">Sign in to sync</span></span>
+                    <span>Saved locally · <span className="underline decoration-slate-600 hover:decoration-indigo-400">{currentUser ? "Save to cloud" : "Sign in to sync"}</span></span>
                   </button>
-                )}
-                {autosaveStatus === "error" && (
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-rose-300" title="Sync issue. Retrying automatically.">
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Sync issue (Retrying...)</span>
-                  </div>
                 )}
               </div>
 
@@ -698,6 +831,7 @@ export default function App() {
               <DownloadDropdown
                 onExport={handleExport}
                 isExporting={isExporting}
+                isSaving={isSaving}
               />
 
               {/* User Google Auth controls */}

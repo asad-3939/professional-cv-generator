@@ -83,6 +83,16 @@ function sanitizeClonedDocumentForCanvas(clonedDoc: Document) {
       }
     });
 
+    // Ensure all images are CORS-safe and do not hang canvas rasterization
+    const images = clonedDoc.querySelectorAll("img");
+    images.forEach((img) => {
+      try {
+        img.crossOrigin = "anonymous";
+      } catch {
+        // ignore
+      }
+    });
+
     if (tempEl.parentNode) {
       tempEl.parentNode.removeChild(tempEl);
     }
@@ -126,9 +136,11 @@ export async function exportOptimizedPDF(
   element.style.transform = "none";
 
   try {
-    const canvas = await html2canvas(element, {
+    const canvasPromise = html2canvas(element, {
       scale: 2.0, // Crisp 192 DPI
       useCORS: true,
+      allowTaint: false,
+      imageTimeout: 10000,
       logging: false,
       backgroundColor: "#ffffff",
       windowWidth: 794,
@@ -137,6 +149,12 @@ export async function exportOptimizedPDF(
         sanitizeClonedDocumentForCanvas(clonedDoc);
       },
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("PDF generation timed out after 25 seconds. Please ensure all images are accessible.")), 25000);
+    });
+
+    const canvas = await Promise.race([canvasPromise, timeoutPromise]);
 
     // High quality JPEG (0.93 quality retains razor-sharp typography while dropping filesize by 98%)
     const imgData = canvas.toDataURL("image/jpeg", 0.93);
@@ -157,6 +175,11 @@ export async function exportOptimizedPDF(
     if (options.onSuccess) {
       options.onSuccess(`Successfully downloaded optimized ${templateName} CV PDF (<300 KB)!`);
     }
+  } catch (err: any) {
+    if (options.onError) {
+      options.onError(err instanceof Error ? err : new Error(String(err)));
+    }
+    throw err;
   } finally {
     element.style.transform = originalTransform;
   }
@@ -196,7 +219,16 @@ export async function exportVectorATSPDF(
     iframe.style.visibility = "hidden";
     document.body.appendChild(iframe);
 
+    let isCleanedUp = false;
+    let safetyTimeout: any = null;
+
     const cleanup = () => {
+      if (isCleanedUp) return;
+      isCleanedUp = true;
+      if (safetyTimeout) {
+        clearTimeout(safetyTimeout);
+        safetyTimeout = null;
+      }
       setTimeout(() => {
         try {
           if (iframe.parentNode) {
@@ -205,8 +237,16 @@ export async function exportVectorATSPDF(
         } catch {
           // ignore
         }
-      }, 1000);
+      }, 500);
     };
+
+    // Safety timeout to prevent hanging forever if print dialog or iframe blocks
+    safetyTimeout = setTimeout(() => {
+      cleanup();
+      const timeoutErr = new Error("Vector print request timed out. Please try standard 'Download PDF'.");
+      if (options.onError) options.onError(timeoutErr);
+      reject(timeoutErr);
+    }, 15000);
 
     try {
       const doc = iframe.contentWindow?.document;
@@ -335,9 +375,11 @@ export async function exportHighResPNG(
   element.style.transform = "none";
 
   try {
-    const canvas = await html2canvas(element, {
+    const canvasPromise = html2canvas(element, {
       scale: 2.0,
       useCORS: true,
+      allowTaint: false,
+      imageTimeout: 10000,
       logging: false,
       backgroundColor: "#ffffff",
       windowWidth: 794,
@@ -346,6 +388,12 @@ export async function exportHighResPNG(
         sanitizeClonedDocumentForCanvas(clonedDoc);
       },
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("PNG generation timed out after 25 seconds.")), 25000);
+    });
+
+    const canvas = await Promise.race([canvasPromise, timeoutPromise]);
 
     const imgData = canvas.toDataURL("image/png");
     const link = document.createElement("a");
@@ -358,6 +406,11 @@ export async function exportHighResPNG(
     if (options.onSuccess) {
       options.onSuccess(`Successfully downloaded high-resolution ${templateName} CV Image (PNG)!`);
     }
+  } catch (err: any) {
+    if (options.onError) {
+      options.onError(err instanceof Error ? err : new Error(String(err)));
+    }
+    throw err;
   } finally {
     element.style.transform = originalTransform;
   }

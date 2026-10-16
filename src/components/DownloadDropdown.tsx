@@ -5,17 +5,22 @@ import {
 
 interface DownloadDropdownProps {
   onExport: (format: "pdf" | "vector-pdf" | "png") => void;
-  isExporting: "pdf" | "vector-pdf" | "png" | null;
+  isExporting: boolean | "pdf" | "vector-pdf" | "png" | null;
+  isSaving?: boolean;
   disabled?: boolean;
 }
 
 export const DownloadDropdown: React.FC<DownloadDropdownProps> = ({
   onExport,
   isExporting,
+  isSaving = false,
   disabled = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isExportActive = Boolean(isExporting);
+  const isBusy = disabled || isExportActive || isSaving;
 
   // Close when clicking outside
   useEffect(() => {
@@ -44,6 +49,7 @@ export const DownloadDropdown: React.FC<DownloadDropdownProps> = ({
   }, [isOpen]);
 
   const handleSelectFormat = (format: "pdf" | "vector-pdf" | "png") => {
+    if (isBusy) return;
     setIsOpen(false);
     onExport(format);
   };
@@ -52,15 +58,15 @@ export const DownloadDropdown: React.FC<DownloadDropdownProps> = ({
     <div className="relative inline-block text-left" ref={dropdownRef} id="download_dropdown_container">
       {/* Primary Trigger Button */}
       <button
-        onClick={() => setIsOpen(prev => !prev)}
-        disabled={disabled || isExporting !== null}
+        onClick={() => !isBusy && setIsOpen(prev => !prev)}
+        disabled={isBusy}
         className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-lg text-xs font-bold tracking-tight shadow-sm transition-all select-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/40 shrink-0"
-        title="Choose a download format (PDF, Vector ATS, PNG)"
+        title={isExportActive ? "Generating export file..." : isSaving ? "Saving changes..." : "Choose a download format (PDF, Vector ATS, PNG)"}
         id="download_dropdown_trigger_btn"
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        {isExporting ? (
+        {isExportActive ? (
           <>
             <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
             <span>Exporting...</span>
