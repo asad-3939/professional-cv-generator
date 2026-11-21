@@ -436,6 +436,7 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
             <button
               type="button"
               onClick={() => setErrorMessage(null)}
+              aria-label="Dismiss upload error notice"
               className="text-rose-400 hover:text-rose-200 transition cursor-pointer p-0.5"
             >
               <X className="w-3.5 h-3.5" />
@@ -447,18 +448,31 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
 
       {/* Saved Resumes Selection Modal */}
       {showSavedCVsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-5 sm:p-6 text-left relative animate-in fade-in zoom-in-95">
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowSavedCVsModal(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setShowSavedCVsModal(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="saved-cvs-modal-title"
+            className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-5 sm:p-6 text-left relative animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
               <div className="flex items-center gap-2">
                 <FolderOpen className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-base font-bold text-white tracking-tight">
+                <h3 id="saved-cvs-modal-title" className="text-base font-bold text-white tracking-tight">
                   Select from My Saved Resumes
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowSavedCVsModal(false)}
+                aria-label="Close saved resumes dialog"
                 className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -476,10 +490,11 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
                 const candidateRole = cv.data?.personal?.jobTitle || "Professional";
 
                 return (
-                  <div
+                  <button
                     key={cv.id}
+                    type="button"
                     onClick={() => handleSelectSaved(cv)}
-                    className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
+                    className={`w-full text-left p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-3 ${
                       isCurrent
                         ? "bg-indigo-950/40 border-indigo-500/50 text-white"
                         : "bg-slate-950 border-slate-800 hover:border-slate-700 hover:bg-slate-850 text-slate-200"
@@ -510,7 +525,7 @@ export const ResumeUpload: React.FC<ResumeUploadProps> = ({
                         </span>
                       )}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

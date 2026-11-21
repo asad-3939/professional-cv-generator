@@ -123,6 +123,7 @@ export function UserDropdown({
 
           {/* Primary User Actions */}
           <div className="py-1.5 space-y-0.5">
+
             <button
               onClick={() => {
                 setIsOpen(false);

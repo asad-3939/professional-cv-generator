@@ -19,6 +19,7 @@ import {
 import { initialCVData, initialDesignConfig } from "../sampleData";
 import { collection, query, orderBy, limit, getDocs, deleteDoc, doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { ConfirmModal } from "./common/ConfirmModal";
 
 // Lazy-load full ResumeTemplates component only for lightbox preview/restore
 const LazyResumeTemplates = lazy(() => 
@@ -102,6 +103,31 @@ export function UserDashboard({
   // State for opening/viewing a file snapshot inside the dashboard
   const [previewFile, setPreviewFile] = useState<AIDownloadRecord | null>(null);
   const [previewZoom, setPreviewZoom] = useState<number>(0.6);
+
+  // In-app accessible confirmation state replacing native window.confirm
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (confirmDialog) {
+          setConfirmDialog(null);
+        } else if (previewFile) {
+          setPreviewFile(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, confirmDialog, previewFile, onClose]);
 
   // Sync initial CVs when provided by parent
   useEffect(() => {
@@ -194,31 +220,18 @@ export function UserDashboard({
     }
   }, [isOpen, currentUser, activeTab]);
 
-  // Handle Delete CV
-  const handleDeleteCV = async (cvId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  // Handle Delete CV (opens accessible confirmation modal)
+  const executeDeleteCV = async (cvId: string) => {
     if (!currentUser) return;
-    if (cvsList.length <= 1) {
-      if (!window.confirm("This is your only resume. Deleting it will create a fresh blank resume. Continue?")) {
-        return;
-      }
-    } else {
-      if (!window.confirm("Are you sure you want to permanently delete this resume?")) {
-        return;
-      }
-    }
-
     setActionLoadingId(cvId);
     try {
       await deleteCV(currentUser.uid, cvId);
       const updated = cvsList.filter(c => c.id !== cvId);
       setCvsList(updated);
 
-      // If the deleted CV was currently open in the workspace, open the next available one
       if (activeCvId === cvId && updated.length > 0) {
         onSelectCV(updated[0]);
       } else if (updated.length === 0) {
-        // Create fresh CV
         const fresh = await createCV(currentUser.uid, initialCVData, initialDesignConfig, "My Resume", true);
         setCvsList([fresh]);
         onSelectCV(fresh);
@@ -229,6 +242,20 @@ export function UserDashboard({
     } finally {
       setActionLoadingId(null);
     }
+  };
+
+  const handleDeleteCV = (cvId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUser) return;
+    const isLast = cvsList.length <= 1;
+    setConfirmDialog({
+      title: isLast ? "Replace Only Resume?" : "Delete Resume?",
+      message: isLast
+        ? "This is your only resume. Deleting it will create a fresh blank resume. Continue?"
+        : "Are you sure you want to permanently delete this resume?",
+      confirmLabel: isLast ? "Delete & Reset" : "Delete Resume",
+      onConfirm: () => executeDeleteCV(cvId),
+    });
   };
 
   // Handle Duplicate CV
@@ -298,17 +325,25 @@ export function UserDashboard({
   };
 
   // Handle Delete History Item
-  const handleDeleteHistory = async (itemId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const executeDeleteHistory = async (itemId: string) => {
     if (!currentUser) return;
-    if (!window.confirm("Delete this export snapshot?")) return;
-
     try {
       await deleteDoc(doc(db, "users", currentUser.uid, "history", itemId));
       setDownloadsList(prev => prev.filter(item => item.id !== itemId));
     } catch (err) {
       console.error("Error removing export record:", err);
     }
+  };
+
+  const handleDeleteHistory = (itemId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUser) return;
+    setConfirmDialog({
+      title: "Delete Export Snapshot?",
+      message: "Remove this saved export snapshot from your cloud history?",
+      confirmLabel: "Delete Snapshot",
+      onConfirm: () => executeDeleteHistory(itemId),
+    });
   };
 
   if (!isOpen || !currentUser) return null;
@@ -348,9 +383,11 @@ export function UserDashboard({
             <div className="flex items-center gap-4">
               <div className="hidden sm:flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1">
                 <button 
+                  type="button"
                   onClick={() => setPreviewZoom(z => Math.max(0.3, z - 0.1))}
                   className="px-2 py-1 text-xs text-slate-400 hover:text-white font-black cursor-pointer"
                   title="Zoom Out"
+                  aria-label="Zoom out preview snapshot"
                 >
                   -
                 </button>
@@ -358,18 +395,22 @@ export function UserDashboard({
                   {Math.round(previewZoom * 100)}%
                 </span>
                 <button 
+                  type="button"
                   onClick={() => setPreviewZoom(z => Math.min(1.2, z + 0.1))}
                   className="px-2 py-1 text-xs text-slate-400 hover:text-white font-black cursor-pointer"
                   title="Zoom In"
+                  aria-label="Zoom in preview snapshot"
                 >
                   +
                 </button>
               </div>
 
               <button 
+                type="button"
                 onClick={() => setPreviewFile(null)}
                 className="p-2 bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 rounded-xl transition cursor-pointer"
                 title="Return to list"
+                aria-label="Close snapshot preview"
               >
                 <XIcon className="w-5 h-5" />
               </button>
@@ -440,6 +481,9 @@ export function UserDashboard({
 
       {/* Main Dashboard Dialog */}
       <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dashboard-title"
         className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[640px] max-h-[92vh] text-left"
         onClick={(e) => e.stopPropagation()}
         id="dashboard-container"
@@ -464,7 +508,9 @@ export function UserDashboard({
           </div>
           
           <button 
+            type="button"
             onClick={onClose}
+            aria-label="Close dashboard"
             className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition cursor-pointer"
             id="close-dashboard-btn"
           >
@@ -560,6 +606,7 @@ export function UserDashboard({
             )}
 
             <button
+              type="button"
               onClick={() => {
                 loadUserCVs();
                 loadUserStats();
@@ -568,6 +615,7 @@ export function UserDashboard({
               disabled={loading}
               className="text-slate-400 hover:text-white p-1.5 rounded-lg transition flex items-center gap-1.5 text-xs font-medium cursor-pointer"
               title="Refresh"
+              aria-label="Refresh resumes and history"
             >
               <RefreshCwIcon className={`w-3.5 h-3.5 ${loading ? "animate-spin text-indigo-400" : ""}`} />
             </button>
@@ -591,8 +639,10 @@ export function UserDashboard({
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider">Create New Resume</h3>
                 </div>
                 <button 
+                  type="button"
                   onClick={() => setIsCreatingNew(false)}
-                  className="text-slate-500 hover:text-slate-300 p-1"
+                  aria-label="Close new resume form"
+                  className="text-slate-500 hover:text-slate-300 p-1 cursor-pointer"
                 >
                   <XIcon className="w-4 h-4" />
                 </button>
@@ -730,6 +780,7 @@ export function UserDashboard({
                               type="submit"
                               className="p-1 text-emerald-400 hover:text-emerald-300"
                               title="Save Title"
+                              aria-label="Save resume title"
                             >
                               <CheckIcon className="w-4 h-4" />
                             </button>
@@ -738,6 +789,7 @@ export function UserDashboard({
                               onClick={() => setEditingTitleId(null)}
                               className="p-1 text-slate-500 hover:text-slate-300"
                               title="Cancel"
+                              aria-label="Cancel renaming resume"
                             >
                               <XIcon className="w-4 h-4" />
                             </button>
@@ -746,13 +798,15 @@ export function UserDashboard({
                           <div className="flex items-center gap-2">
                             <h4 className="text-xs font-bold text-white truncate">{cv.title}</h4>
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setEditingTitleId(cv.id);
                                 setEditingTitleText(cv.title);
                               }}
-                              className="text-slate-500 hover:text-slate-300 p-0.5 rounded transition"
+                              className="text-slate-500 hover:text-slate-300 p-0.5 rounded transition cursor-pointer"
                               title="Rename resume"
+                              aria-label={`Rename resume ${cv.title}`}
                             >
                               <Edit2Icon className="w-3 h-3" />
                             </button>
@@ -823,17 +877,21 @@ export function UserDashboard({
                             )}
 
                             <button
+                              type="button"
                               onClick={(e) => handleDuplicateCV(cv, e)}
                               className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
                               title="Duplicate Resume"
+                              aria-label={`Duplicate resume ${cv.title}`}
                             >
                               <CopyIcon className="w-3.5 h-3.5" />
                             </button>
 
                             <button
+                              type="button"
                               onClick={(e) => handleDeleteCV(cv.id, e)}
                               className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded-xl transition cursor-pointer"
                               title="Delete Resume"
+                              aria-label={`Delete resume ${cv.title}`}
                             >
                               <Trash2Icon className="w-3.5 h-3.5" />
                             </button>
@@ -923,9 +981,11 @@ export function UserDashboard({
 
                       {item.id && (
                         <button
+                          type="button"
                           onClick={(e) => handleDeleteHistory(item.id!, e)}
                           className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded-xl transition cursor-pointer"
                           title="Delete snapshot"
+                          aria-label={`Delete export snapshot ${item.fileName}`}
                         >
                           <Trash2Icon className="w-3.5 h-3.5" />
                         </button>
@@ -990,6 +1050,7 @@ export function UserDashboard({
             <span>Encrypted cloud storage active</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer"
           >
@@ -997,6 +1058,19 @@ export function UserDashboard({
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(confirmDialog)}
+        title={confirmDialog?.title || "Confirm Action"}
+        message={confirmDialog?.message || ""}
+        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          if (action) void action();
+        }}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 }

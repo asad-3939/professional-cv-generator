@@ -1,13 +1,14 @@
 import React, { useEffect } from "react";
-import { Shield, ArrowLeft, Lock, FileText, Sparkles, Database, Mail, CheckCircle2 } from "lucide-react";
+import { Shield, ArrowLeft, Lock, FileText, Sparkles, Database, Mail, CheckCircle2, SlidersHorizontal } from "lucide-react";
 
 interface PrivacyPolicyProps {
   onNavigateHome: () => void;
   onNavigateTerms: () => void;
   onNavigateBuilder: () => void;
+  onOpenAnalyticsPreferences?: () => void;
 }
 
-export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuilder }: PrivacyPolicyProps) {
+export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuilder, onOpenAnalyticsPreferences }: PrivacyPolicyProps) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
     document.title = "Privacy Policy | ProCVMaker";
@@ -160,17 +161,41 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
 
           {/* Cookies and Analytics */}
           <section className="space-y-4">
-            <h2 className="text-lg font-bold text-white">5. Cookies & Session Tokens</h2>
+            <h2 className="text-lg font-bold text-white">5. Cookies, Local Storage &amp; Optional Analytics (Microsoft Clarity)</h2>
             <p>
-              We use minimal, strictly necessary cookies and browser tokens for:
+              We use minimal, strictly necessary browser storage and session tokens for:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-300 text-xs">
               <li>Preserving authentication state during active sign-in sessions with Firebase Google Auth.</li>
-              <li>Storing user interface preferences (such as template zoom scale and theme settings).</li>
+              <li>Storing your local CV draft, design settings, and explicit analytics consent choice (<code className="text-slate-300">procvmaker_analytics_consent</code>) inside your browser&apos;s <code className="text-slate-300">localStorage</code>.</li>
             </ul>
-            <p className="text-xs text-slate-400">
-              We do not deploy intrusive third-party cross-site advertising or tracking cookies.
-            </p>
+            <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2.5 text-xs">
+              <p className="font-semibold text-white">Consent-Based Microsoft Clarity Telemetry</p>
+              <p className="text-slate-300 leading-relaxed">
+                When configured by the deployment (<code className="text-slate-300">VITE_CLARITY_ID</code>), this site can optionally load <strong>Microsoft Clarity</strong> to understand aggregated navigation, clicks, and layout usability so we can improve the resume editor and tools.
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-slate-400">
+                <li><strong>Strict Opt-In Gate:</strong> Microsoft Clarity is NOT loaded before you click &ldquo;Accept Analytics&rdquo;. If you ignore the banner or click &ldquo;Reject&rdquo;, no Clarity script is injected.</li>
+                <li><strong>No Feature Restrictions:</strong> Declining analytics does not limit access to building, auditing, matching, or exporting your resume.</li>
+                <li><strong>Withdrawing Consent:</strong> You can update or withdraw your preference at any time using the Analytics Preferences control below. Note that third-party scripts already loaded in your current browser tab may require a page refresh after withdrawal to clear in-memory runtime listeners.</li>
+              </ul>
+              {onOpenAnalyticsPreferences && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={onOpenAnalyticsPreferences}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer"
+                    id="privacy_analytics_preferences_btn"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Manage Analytics Preferences</span>
+                  </button>
+                </div>
+              )}
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Transparency note: This policy documents how the software operates technically and is not a legal certification of GDPR, CCPA, or regional statutory compliance.
+              </p>
+            </div>
           </section>
 
           {/* User Rights & Deletion */}
@@ -211,8 +236,17 @@ export function PrivacyPolicy({ onNavigateHome, onNavigateTerms, onNavigateBuild
       {/* Footer Navigation */}
       <footer className="border-t border-slate-850 bg-slate-950 px-4 md:px-8 py-8 text-xs text-slate-400">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 ProCVMaker. All rights reserved.</p>
-          <div className="flex items-center gap-5">
+          <p>&copy; 2026 Asad Mustafa &bull; ProCVMaker (MIT License).</p>
+          <div className="flex flex-wrap items-center gap-5">
+            {onOpenAnalyticsPreferences && (
+              <button
+                type="button"
+                onClick={onOpenAnalyticsPreferences}
+                className="hover:text-white transition cursor-pointer"
+              >
+                Analytics Preferences
+              </button>
+            )}
             <a 
               href="/" 
               onClick={(e) => {

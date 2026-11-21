@@ -29,6 +29,7 @@ export interface ATSCheckerPageProps {
   onNavigateHome: () => void;
   onNavigatePrivacy: () => void;
   onNavigateTerms: () => void;
+  onOpenAnalyticsPreferences?: () => void;
 }
 
 export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
@@ -49,7 +50,8 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
   onNavigateHome,
   onNavigatePrivacy,
   onNavigateTerms,
-  onNavigateTemplates
+  onNavigateTemplates,
+  onOpenAnalyticsPreferences
 }) => {
   const [analysisKey, setAnalysisKey] = useState<number>(0);
   const [hasTriggeredCheck, setHasTriggeredCheck] = useState<boolean>(true);
@@ -512,11 +514,21 @@ export const ATSCheckerPage: React.FC<ATSCheckerPageProps> = ({
               Privacy Policy
             </button>
             <button
+              type="button"
               onClick={onNavigateTerms}
               className="text-slate-400 hover:text-slate-200 transition cursor-pointer"
             >
               Terms of Service
             </button>
+            {onOpenAnalyticsPreferences && (
+              <button
+                type="button"
+                onClick={onOpenAnalyticsPreferences}
+                className="text-slate-400 hover:text-slate-200 transition cursor-pointer"
+              >
+                Analytics Preferences
+              </button>
+            )}
           </div>
         </div>
 

@@ -1,7 +1,15 @@
 {
-  "name": "react-example",
+  "name": "procvmaker",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "license": "MIT",
+  "author": "Asad Mustafa",
+  "homepage": "https://www.procvmaker.online",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/asad-3939/professional-cv-generator.git"
+  },
+  "description": "ATS-friendly AI CV Builder, 6-category ATS Resume Checker, and Weighted Job Match Engine built with React, Express, Firebase, and Google Gemini.",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -9,6 +17,9 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "seo:audit": "node scripts/seo-audit.mjs --dir=dist --strict",
     "seo:audit:live": "node scripts/seo-audit.mjs --live=https://www.procvmaker.online --strict"
   },
@@ -17,28 +28,25 @@
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "firebase": "^12.15.0",
-    "firebase-admin": "^14.1.0",
-    "html2canvas": "^1.4.1",
     "html2canvas-pro": "^2.2.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "vite": "^6.2.3"
+    "vite": "^6.4.6"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
-    "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "sharp": "^0.35.4",
     "tailwindcss": "^4.1.14",
-    "to-ico": "^1.1.5",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.4.6",
+    "vitest": "^5.1.1"
   }
 }

@@ -22,6 +22,7 @@ interface HomepageProps {
   onNavigateTerms?: () => void;
   onNavigateATSChecker?: () => void;
   onNavigateJobMatch?: () => void;
+  onOpenAnalyticsPreferences?: () => void;
   onImportResume?: (parsedCV: CVData, title: string) => void;
   userCVs?: CVRecord[];
   onSelectSavedCV?: (cvRecord: { data: CVData; design: DesignConfig; title: string; id?: string }) => void;
@@ -39,6 +40,7 @@ export function Homepage({
   onNavigateTerms,
   onNavigateATSChecker,
   onNavigateJobMatch,
+  onOpenAnalyticsPreferences,
   onImportResume,
   userCVs = [],
   onSelectSavedCV
@@ -627,6 +629,16 @@ export function Homepage({
             >
               Terms of Service
             </a>
+            {onOpenAnalyticsPreferences && (
+              <button
+                type="button"
+                onClick={onOpenAnalyticsPreferences}
+                className="text-slate-400 hover:text-slate-200 transition cursor-pointer text-xs"
+                id="footer_analytics_prefs_btn"
+              >
+                Analytics Preferences
+              </button>
+            )}
             
             <a 
               href="mailto:asadkhr39@gmail.com?subject=Inquiry regarding ProCVMaker"

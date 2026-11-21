@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability Disclosure
+    url: mailto:asadkhr39@gmail.com?subject=Security%20Report%20-%20ProCVMaker
+    about: Please report security vulnerabilities privately rather than opening a public issue.

@@ -2,7 +2,10 @@ node_modules/
 build/
 dist/
 coverage/
+.vercel/
 .DS_Store
 *.log
+*.tsbuildinfo
+seo-report.md
 .env*
 !.env.example

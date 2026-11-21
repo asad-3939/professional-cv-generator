@@ -9,6 +9,46 @@ interface ExportOptions {
 }
 
 /**
+ * Sanitizes a user-derived export filename so it cannot contain HTML delimiters,
+ * path traversal characters, or control characters.
+ */
+export function sanitizeExportFileName(rawName?: string): string {
+  if (!rawName || typeof rawName !== "string") {
+    return "Professional";
+  }
+  const cleaned = rawName
+    .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, "")
+    .replace(/\.{2,}/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/^[._]+|[._]+$/g, "")
+    .slice(0, 80);
+  return cleaned || "Professional";
+}
+
+/**
+ * Removes executable elements and inline event handlers from a cloned DOM node tree
+ * before attaching it to an offscreen print document.
+ */
+function stripExecutableNodes(root: Element): void {
+  const blockedTags = root.querySelectorAll("script, iframe, object, embed");
+  blockedTags.forEach((node) => node.remove());
+
+  const allElements = [root, ...Array.from(root.querySelectorAll("*"))];
+  for (const el of allElements) {
+    const attrs = Array.from(el.attributes);
+    for (const attr of attrs) {
+      const nameLower = attr.name.toLowerCase();
+      const valLower = attr.value.trim().toLowerCase();
+      if (nameLower.startsWith("on")) {
+        el.removeAttribute(attr.name);
+      } else if ((nameLower === "href" || nameLower === "src" || nameLower === "xlink:href") && valLower.startsWith("javascript:")) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  }
+}
+
+/**
  * Prepares and clones stylesheets while converting Tailwind v4 oklch/oklab color values
  * to legacy RGB so html2canvas renders colors accurately without failing.
  */
@@ -32,7 +72,7 @@ function sanitizeClonedDocumentForCanvas(clonedDoc: Document) {
     const clonedLinks = clonedDoc.querySelectorAll('link[rel="stylesheet"]');
     clonedLinks.forEach((el) => el.remove());
 
-    const clonedStyles = clonedDoc.querySelectorAll('style');
+    const clonedStyles = clonedDoc.querySelectorAll("style");
     clonedStyles.forEach((el) => el.remove());
 
     const oklchRegex = /okl(ch|ab)\((?:[^)(]+|\([^)(]*\))*\)/g;
@@ -122,22 +162,23 @@ function sanitizeClonedDocumentForCanvas(clonedDoc: Document) {
 
 /**
  * OPTION B OPTIMIZATION:
- * Generates an ultra-optimized direct PDF file (~180 KB - 280 KB, down from 15.9 MB).
- * - Uses 2.0x scale (192 DPI) for crystal clear sharpness without 240+ DPI pixel bloat.
- * - Extracts high-efficiency JPEG with 0.93 quality instead of raw 32-bit RGBA PNG.
- * - Enables jsPDF flate/deflate compression with FAST rendering.
+ * Generates an ultra-optimized direct PDF file (~180 KB - 280 KB).
+ * - Uses 2.0x scale (192 DPI) for crisp typography.
+ * - Extracts high-efficiency JPEG with 0.93 quality.
+ * - Enables jsPDF stream compression with FAST rendering.
  */
 export async function exportOptimizedPDF(
   element: HTMLElement,
   options: ExportOptions = {}
 ): Promise<void> {
-  const { fileName = "Professional", templateName = "Modern" } = options;
+  const safeFileName = sanitizeExportFileName(options.fileName);
+  const templateName = options.templateName || "Modern";
   const originalTransform = element.style.transform;
   element.style.transform = "none";
 
   try {
     const canvasPromise = html2canvas(element, {
-      scale: 2.0, // Crisp 192 DPI
+      scale: 2.0,
       useCORS: true,
       allowTaint: false,
       imageTimeout: 10000,
@@ -155,22 +196,20 @@ export async function exportOptimizedPDF(
     });
 
     const canvas = await Promise.race([canvasPromise, timeoutPromise]);
-
-    // High quality JPEG (0.93 quality retains razor-sharp typography while dropping filesize by 98%)
     const imgData = canvas.toDataURL("image/jpeg", 0.93);
 
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
       format: "a4",
-      compress: true, // Enable stream compression
+      compress: true,
     });
 
-    const pdfWidth = 210; // A4 standard width in mm
+    const pdfWidth = 210;
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
     pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
-    pdf.save(`${fileName}_CV.pdf`);
+    pdf.save(`${safeFileName}_CV.pdf`);
 
     if (options.onSuccess) {
       options.onSuccess(`Successfully downloaded optimized ${templateName} CV PDF (<300 KB)!`);
@@ -188,9 +227,7 @@ export async function exportOptimizedPDF(
 /**
  * OPTION A (PREFERRED) VECTOR ATS ENGINE:
  * Creates a 100% Vector-Based, Selectable, ATS-Friendly PDF via native browser vector print pipeline.
- * - Embeds true vector font glyphs (selectable, searchable, 0% blurriness at 1000% zoom).
- * - Resulting PDF is extremely lightweight (~40 KB - 120 KB).
- * - 100% compliant with ATS systems (Greenhouse, Lever, Workday, Taleo).
+ * Builds the print document using safe DOM APIs (textContent + importNode) without raw HTML string interpolation.
  */
 export async function exportVectorATSPDF(
   elementId: string = "cv-pdf-render-target",
@@ -205,10 +242,9 @@ export async function exportVectorATSPDF(
     throw err;
   }
 
-  const { fileName = "Professional" } = options;
+  const safeFileName = sanitizeExportFileName(options.fileName);
 
   return new Promise<void>((resolve, reject) => {
-    // Create an invisible sandboxed iframe for vector printing
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.right = "0";
@@ -220,7 +256,7 @@ export async function exportVectorATSPDF(
     document.body.appendChild(iframe);
 
     let isCleanedUp = false;
-    let safetyTimeout: any = null;
+    let safetyTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const cleanup = () => {
       if (isCleanedUp) return;
@@ -240,7 +276,6 @@ export async function exportVectorATSPDF(
       }, 500);
     };
 
-    // Safety timeout to prevent hanging forever if print dialog or iframe blocks
     safetyTimeout = setTimeout(() => {
       cleanup();
       const timeoutErr = new Error("Vector print request timed out. Please try standard 'Download PDF'.");
@@ -258,8 +293,33 @@ export async function exportVectorATSPDF(
         return;
       }
 
-      // Gather parent document styles
-      let stylesHtml = "";
+      doc.open();
+      doc.write('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /></head><body></body></html>');
+      doc.close();
+
+      // Safely set document title via textContent (prevents HTML/script breakout)
+      const titleEl = doc.createElement("title");
+      titleEl.textContent = `${safeFileName}_CV`;
+      doc.head.appendChild(titleEl);
+
+      // Attach Google Fonts safely via DOM attributes
+      const preconnect1 = doc.createElement("link");
+      preconnect1.rel = "preconnect";
+      preconnect1.href = "https://fonts.googleapis.com";
+      doc.head.appendChild(preconnect1);
+
+      const preconnect2 = doc.createElement("link");
+      preconnect2.rel = "preconnect";
+      preconnect2.href = "https://fonts.gstatic.com";
+      preconnect2.crossOrigin = "anonymous";
+      doc.head.appendChild(preconnect2);
+
+      const fontStylesheet = doc.createElement("link");
+      fontStylesheet.rel = "stylesheet";
+      fontStylesheet.href = "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap";
+      doc.head.appendChild(fontStylesheet);
+
+      // Copy parent document stylesheet rules safely via StyleElement.textContent
       for (let i = 0; i < document.styleSheets.length; i++) {
         try {
           const sheet = document.styleSheets[i];
@@ -269,71 +329,54 @@ export async function exportVectorATSPDF(
             for (let j = 0; j < rules.length; j++) {
               cssText += rules[j].cssText + "\n";
             }
-            stylesHtml += `<style>${cssText}</style>`;
+            const styleEl = doc.createElement("style");
+            styleEl.textContent = cssText;
+            doc.head.appendChild(styleEl);
           }
         } catch {
           // Ignore cross-origin sheets
         }
       }
 
-      const fontLinks = `
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
+      const printOverrideStyle = doc.createElement("style");
+      printOverrideStyle.textContent = `
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        *, *::before, *::after {
+          box-sizing: border-box;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 210mm !important;
+          min-height: 297mm !important;
+          background: #ffffff !important;
+          font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
+        #cv-pdf-render-target {
+          width: 210mm !important;
+          min-height: 297mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          transform: none !important;
+          background: #ffffff !important;
+          overflow: visible !important;
+        }
       `;
+      doc.head.appendChild(printOverrideStyle);
 
-      const printOverrides = `
-        <style>
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
-          *, *::before, *::after {
-            box-sizing: border-box;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 210mm !important;
-            min-height: 297mm !important;
-            background: #ffffff !important;
-            font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            -webkit-font-smoothing: antialiased;
-          }
-          #cv-pdf-render-target {
-            width: 210mm !important;
-            min-height: 297mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            transform: none !important;
-            background: #ffffff !important;
-            overflow: visible !important;
-          }
-        </style>
-      `;
-
-      doc.open();
-      doc.write(`
-        <!DOCTYPE html>
-        <html lang="en">
-          <head>
-            <meta charset="utf-8" />
-            <title>${fileName}_CV</title>
-            ${fontLinks}
-            ${stylesHtml}
-            ${printOverrides}
-          </head>
-          <body>
-            ${targetElement.outerHTML}
-          </body>
-        </html>
-      `);
-      doc.close();
+      // Import cloned DOM tree safely and strip any executable elements/attributes
+      const importedTarget = doc.importNode(targetElement, true);
+      stripExecutableNodes(importedTarget);
+      doc.body.appendChild(importedTarget);
 
       setTimeout(() => {
         try {
@@ -370,7 +413,8 @@ export async function exportHighResPNG(
   element: HTMLElement,
   options: ExportOptions = {}
 ): Promise<void> {
-  const { fileName = "Professional", templateName = "Modern" } = options;
+  const safeFileName = sanitizeExportFileName(options.fileName);
+  const templateName = options.templateName || "Modern";
   const originalTransform = element.style.transform;
   element.style.transform = "none";
 
@@ -397,7 +441,7 @@ export async function exportHighResPNG(
 
     const imgData = canvas.toDataURL("image/png");
     const link = document.createElement("a");
-    link.download = `${fileName}_CV.png`;
+    link.download = `${safeFileName}_CV.png`;
     link.href = imgData;
     document.body.appendChild(link);
     link.click();

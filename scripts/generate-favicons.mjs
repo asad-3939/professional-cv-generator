@@ -1,7 +1,44 @@
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
-import toIco from 'to-ico';
+
+/**
+ * Packages PNG buffers into a multi-resolution ICO binary container (ICONDIR + ICONDIRENTRY + PNG payloads).
+ * Supported natively by Windows Vista+, macOS, Linux, and all modern browsers without deprecated dependencies.
+ */
+function buildIcoFromPngEntries(entries) {
+  const count = entries.length;
+  const headerSize = 6;
+  const dirEntrySize = 16;
+  const totalDirSize = headerSize + count * dirEntrySize;
+
+  let offset = totalDirSize;
+  const header = Buffer.alloc(headerSize);
+  header.writeUInt16LE(0, 0); // Reserved (must be 0)
+  header.writeUInt16LE(1, 2); // Image type: 1 = ICO
+  header.writeUInt16LE(count, 4); // Number of images
+
+  const dirBuffers = [];
+  const dataBuffers = [];
+
+  for (const { size, buffer } of entries) {
+    const entry = Buffer.alloc(dirEntrySize);
+    const dim = size >= 256 ? 0 : size;
+    entry.writeUInt8(dim, 0); // Width
+    entry.writeUInt8(dim, 1); // Height
+    entry.writeUInt8(0, 2); // Color palette count (0 for PNG)
+    entry.writeUInt8(0, 3); // Reserved
+    entry.writeUInt16LE(1, 4); // Color planes
+    entry.writeUInt16LE(32, 6); // Bits per pixel
+    entry.writeUInt32LE(buffer.length, 8); // Image byte size
+    entry.writeUInt32LE(offset, 12); // Offset from beginning of file
+    offset += buffer.length;
+    dirBuffers.push(entry);
+    dataBuffers.push(buffer);
+  }
+
+  return Buffer.concat([header, ...dirBuffers, ...dataBuffers]);
+}
 
 const svgPath = path.resolve('public/favicon.svg');
 const publicDir = path.resolve('public');
@@ -59,10 +96,10 @@ async function generateAllFavicons() {
   }
 
   // Generate multi-size favicon.ico containing 16x16, 32x32, 48x48
-  const icoBuffer = await toIco([
-    pngBuffers[16],
-    pngBuffers[32],
-    pngBuffers[48]
+  const icoBuffer = buildIcoFromPngEntries([
+    { size: 16, buffer: pngBuffers[16] },
+    { size: 32, buffer: pngBuffers[32] },
+    { size: 48, buffer: pngBuffers[48] }
   ]);
 
   const icoPath = path.join(publicDir, 'favicon.ico');

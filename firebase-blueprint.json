@@ -2,24 +2,30 @@
   "entities": {
     "User": {
       "title": "User Profile",
-      "description": "User account profile and preferences.",
+      "description": "User account profile, active CV pointer, and client feature metadata.",
       "type": "object",
       "properties": {
-        "email": { "type": "string" },
-        "displayName": { "type": "string" },
-        "createdAt": { "type": "string" },
-        "lastLoginAt": { "type": "string" },
-        "activeCvId": { "type": "string" },
-        "downloadsCount": { "type": "number" }
+        "email": { "type": "string", "maxLength": 320 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "photoURL": { "type": "string", "maxLength": 2048 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "lastLoginAt": { "type": "string", "maxLength": 64 },
+        "activeCvId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "downloadsCount": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "aiGenerations": {
+          "type": "array",
+          "maxItems": 200,
+          "description": "Audit log of AI resume import actions triggered by the user."
+        }
       },
-      "required": ["email"]
+      "required": []
     },
     "CV": {
       "title": "Curriculum Vitae",
       "description": "Individual CV document containing structured resume sections and styling configurations.",
       "type": "object",
       "properties": {
-        "title": { "type": "string" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
         "data": {
           "type": "object",
           "description": "Structured CV sections including personal info, summary, experience, education, skills, projects, certifications, languages."
@@ -28,39 +34,38 @@
           "type": "object",
           "description": "Styling configurations including template, fonts, spacing, and colors."
         },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
         "isDefault": { "type": "boolean" }
       },
       "required": ["title", "data", "design"]
     },
     "History": {
       "title": "CV History Log",
-      "description": "Log of generated and downloaded CV export snapshots.",
+      "description": "Immutable snapshot log of generated and downloaded CV exports.",
       "type": "object",
       "properties": {
-        "timestamp": { "type": "string" },
-        "format": { "type": "string" },
-        "fileName": { "type": "string" },
+        "timestamp": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "format": { "type": "string", "enum": ["pdf", "png"] },
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 200 },
         "cvData": { "type": "object" },
         "designConfig": { "type": "object" }
       },
-      "required": ["timestamp", "format"]
+      "required": ["timestamp", "format", "fileName", "cvData", "designConfig"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
-      "description": "User profiles and metadata."
+      "description": "Owner-scoped user profiles and metadata."
     },
     "/users/{userId}/cvs/{cvId}": {
       "schema": "CV",
-      "description": "User created and edited CV documents."
+      "description": "Owner-scoped CV documents."
     },
     "/users/{userId}/history/{historyId}": {
       "schema": "History",
-      "description": "Snapshots of downloaded and exported CVs."
+      "description": "Owner-scoped immutable snapshots of downloaded and exported CVs."
     }
   }
 }
-

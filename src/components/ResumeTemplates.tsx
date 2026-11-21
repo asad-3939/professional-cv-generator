@@ -179,7 +179,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
             <h2 className="text-[12.5px] font-bold uppercase tracking-wider text-slate-900 pb-1.5 mb-3 block" style={{ borderBottom: '1.5px solid #cbd5e1', lineHeight: '1.2' }}>
               Professional Summary
             </h2>
-            <p className="text-slate-650 leading-relaxed text-xs mt-1" style={{ lineHeight: '1.6' }}>
+            <p className="text-slate-600 leading-relaxed text-xs mt-1" style={{ lineHeight: '1.6' }}>
               {summary}
             </p>
           </div>
@@ -249,7 +249,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                           </span>
                         </td>
                         <td style={{ textAlign: 'right', verticalAlign: 'bottom', width: '150px' }}>
-                          <span className="text-[11px] font-semibold text-slate-550 shrink-0" style={{ whiteSpace: 'nowrap' }}>
+                          <span className="text-[11px] font-semibold text-slate-500 shrink-0" style={{ whiteSpace: 'nowrap' }}>
                             {formatCVDateRange(edu.startDate, edu.endDate, edu.current)}
                           </span>
                         </td>
@@ -311,7 +311,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                       </tr>
                     </tbody>
                   </table>
-                  <p className="text-slate-705 leading-relaxed text-xs pl-1" style={{ lineHeight: '1.6', marginTop: '4px' }}>
+                  <p className="text-slate-700 leading-relaxed text-xs pl-1" style={{ lineHeight: '1.6', marginTop: '4px' }}>
                     {proj.description}
                   </p>
                 </div>
@@ -406,7 +406,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                 {personal.fullName || "Your Full Name"}
               </h1>
               {personal.jobTitle && (
-                <p className="text-sm font-semibold tracking-wide text-slate-550 mt-1 uppercase" style={{ trackingWidth: '0.05em' }}>
+                <p className="text-sm font-semibold tracking-wide text-slate-500 mt-1 uppercase" style={{ letterSpacing: '0.05em' }}>
                   {personal.jobTitle}
                 </p>
               )}
@@ -508,7 +508,7 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                         </tbody>
                       </table>
                       <div className="text-slate-600 italic text-[11px]">{edu.school}, {edu.location}</div>
-                      {edu.notes && <p className="text-slate-550 text-[11px] mt-1.5" style={{ lineHeight: '1.5' }}>{edu.notes}</p>}
+                      {edu.notes && <p className="text-slate-500 text-[11px] mt-1.5" style={{ lineHeight: '1.5' }}>{edu.notes}</p>}
                     </div>
                   ))}
                 </td>
@@ -585,11 +585,11 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                         <td style={{ width: '50%', paddingRight: '12px', verticalAlign: 'top', textAlign: 'left' }}>
                           {design.showCertificationsSection && certifications.length > 0 && (
                             <div>
-                              <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-450 mb-2">
+                              <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">
                                 Certificates / Awards
                               </h3>
                               {certifications.map((cert) => (
-                                <p key={cert.id} className="text-[11px] text-slate-705" style={{ marginBottom: '6px' }}>
+                                <p key={cert.id} className="text-[11px] text-slate-700" style={{ marginBottom: '6px' }}>
                                   <span className="font-semibold text-slate-900">{cert.name}</span> — {cert.issuer}
                                 </p>
                               ))}
@@ -600,11 +600,11 @@ export const ResumeTemplates: React.FC<ResumeTemplatesProps> = ({ data, design, 
                         <td style={{ width: '50%', paddingLeft: '12px', verticalAlign: 'top', textAlign: 'left' }}>
                           {design.showLanguagesSection && languages.length > 0 && (
                             <div>
-                              <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-450 mb-2">
+                              <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2">
                                 Languages
                               </h3>
                               {languages.map((lang) => (
-                                <p key={lang.id} className="text-[11px] text-slate-705" style={{ marginBottom: '6px' }}>
+                                <p key={lang.id} className="text-[11px] text-slate-700" style={{ marginBottom: '6px' }}>
                                   <span className="font-semibold text-slate-900">{lang.name}</span> ({lang.proficiency})
                                 </p>
                               ))}

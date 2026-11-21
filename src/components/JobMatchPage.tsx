@@ -29,6 +29,7 @@ export interface JobMatchPageProps {
   onNavigateHome: () => void;
   onNavigatePrivacy: () => void;
   onNavigateTerms: () => void;
+  onOpenAnalyticsPreferences?: () => void;
 }
 
 export const JobMatchPage: React.FC<JobMatchPageProps> = ({
@@ -49,7 +50,8 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
   onSignOut,
   onNavigateHome,
   onNavigatePrivacy,
-  onNavigateTerms
+  onNavigateTerms,
+  onOpenAnalyticsPreferences
 }) => {
   const [matchKey, setMatchKey] = useState<number>(0);
 
@@ -267,7 +269,7 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
               <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-white">1. Hard &amp; Soft Skills Match</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">35% Weight</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">30% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Extracts explicit technologies, frameworks, certifications, and methods mentioned in the vacancy, comparing them against your listed skills and experience items.
@@ -297,7 +299,7 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
               <div className="p-5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-white">4. Role Level &amp; Relevance</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">10% Weight</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-800/40">15% Weight</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Checks seniority matching (Junior, Mid, Senior, Lead, Executive) and confirms the scope of your past achievements reflects the expected ownership level.
@@ -469,11 +471,21 @@ export const JobMatchPage: React.FC<JobMatchPageProps> = ({
               Privacy Policy
             </button>
             <button
+              type="button"
               onClick={onNavigateTerms}
               className="text-slate-400 hover:text-slate-200 transition cursor-pointer"
             >
               Terms of Service
             </button>
+            {onOpenAnalyticsPreferences && (
+              <button
+                type="button"
+                onClick={onOpenAnalyticsPreferences}
+                className="text-slate-400 hover:text-slate-200 transition cursor-pointer"
+              >
+                Analytics Preferences
+              </button>
+            )}
           </div>
         </div>
 

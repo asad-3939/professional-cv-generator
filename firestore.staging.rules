@@ -1,0 +1,133 @@
+rules_version = '2';
+// STAGING-ONLY FIRESTORE SECURITY RULES
+// Target via: firebase deploy --config firebase.staging.json --only firestore:rules --project <YOUR_STAGING_PROJECT_ID>
+// Production firestore.rules is intentionally untouched pending maintainer review and approval.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all unknown paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Security Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && request.auth.token.email_verified == true;
+    }
+
+    function isTimestampOrIsoString(val) {
+      return (val is timestamp) || (val is string && val.size() >= 1 && val.size() <= 64);
+    }
+
+    // User profile schema validation (supports partial setDoc merge writes cleanly)
+    function isValidUserFields(data) {
+      return data.keys().hasOnly([
+          'email',
+          'displayName',
+          'photoURL',
+          'createdAt',
+          'lastLoginAt',
+          'activeCvId',
+          'downloadsCount',
+          'aiGenerations'
+        ])
+        && (!('email' in data) || (
+          data.email is string
+          && data.email.size() <= 320
+          && (data.email == '' || !('email' in request.auth.token) || data.email == request.auth.token.email)
+        ))
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 2048))
+        && (!('createdAt' in data) || isTimestampOrIsoString(data.createdAt))
+        && (!('lastLoginAt' in data) || isTimestampOrIsoString(data.lastLoginAt))
+        && (!('activeCvId' in data) || isValidId(data.activeCvId))
+        && (!('downloadsCount' in data) || (
+          data.downloadsCount is int
+          && data.downloadsCount >= 0
+          && data.downloadsCount <= 100000
+        ))
+        && (!('aiGenerations' in data) || (
+          data.aiGenerations is list
+          && data.aiGenerations.size() <= 200
+        ));
+    }
+
+    function isValidUserUpdate(newData, oldData) {
+      return isValidUserFields(newData)
+        && (!('createdAt' in oldData) || newData.createdAt == oldData.createdAt);
+    }
+
+    // CV document validation
+    function isValidCVFields(data) {
+      return data.keys().hasAll(['title', 'data', 'design'])
+        && data.keys().hasOnly(['title', 'data', 'design', 'createdAt', 'updatedAt', 'isDefault'])
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 200
+        && data.data is map
+        && data.data.keys().size() <= 20
+        && data.design is map
+        && data.design.keys().size() <= 25
+        && (!('isDefault' in data) || data.isDefault is bool)
+        && (!('createdAt' in data) || isTimestampOrIsoString(data.createdAt))
+        && (!('updatedAt' in data) || isTimestampOrIsoString(data.updatedAt));
+    }
+
+    function isValidCVUpdate(newData, oldData) {
+      return isValidCVFields(newData)
+        && (!('createdAt' in oldData) || newData.createdAt == oldData.createdAt);
+    }
+
+    // Export history snapshot validation
+    function isValidHistoryCreate(data) {
+      return data.keys().hasAll(['timestamp', 'format', 'fileName', 'cvData', 'designConfig'])
+        && data.keys().hasOnly(['timestamp', 'format', 'fileName', 'cvData', 'designConfig'])
+        && isTimestampOrIsoString(data.timestamp)
+        && (data.format == 'pdf' || data.format == 'png')
+        && data.fileName is string
+        && data.fileName.size() >= 1
+        && data.fileName.size() <= 200
+        && data.cvData is map
+        && data.cvData.keys().size() <= 20
+        && data.designConfig is map
+        && data.designConfig.keys().size() <= 25;
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Never allow listing or scraping user accounts
+      allow create: if isOwner(userId) && isValidUserFields(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserUpdate(request.resource.data, resource.data);
+      allow delete: if false;
+
+      // User CVs subcollection
+      match /cvs/{cvId} {
+        allow get, list: if isOwner(userId) && isValidId(cvId);
+        allow create: if isOwner(userId) && isValidId(cvId) && isValidCVFields(request.resource.data);
+        allow update: if isOwner(userId) && isValidId(cvId) && isValidCVUpdate(request.resource.data, resource.data);
+        allow delete: if isOwner(userId) && isValidId(cvId);
+      }
+
+      // User Export History subcollection (immutable snapshots)
+      match /history/{historyId} {
+        allow get, list: if isOwner(userId) && isValidId(historyId);
+        allow create: if isOwner(userId) && isValidId(historyId) && isValidHistoryCreate(request.resource.data);
+        allow update: if false; // Export history records are immutable snapshots
+        allow delete: if isOwner(userId) && isValidId(historyId);
+      }
+    }
+  }
+}

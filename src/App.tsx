@@ -31,6 +31,16 @@ import { TermsOfService } from "./components/TermsOfService";
 import { UserDropdown } from "./components/UserDropdown";
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
 import { DownloadDropdown } from "./components/DownloadDropdown";
+import { ConfirmModal } from "./components/common/ConfirmModal";
+import { AnalyticsConsentBanner } from "./components/common/AnalyticsConsentBanner";
+import {
+  AnalyticsConsentStatus,
+  getAnalyticsConsentStatus,
+  getConfiguredClarityId,
+  grantClarityConsent,
+  initializeClarityIfConsented,
+  revokeClarityConsent,
+} from "./lib/clarityConsent";
 
 // Lazy-load Advanced ATS Analyzer to keep initial bundle ultra-lean
 const LazyATSAnalyzerModal = lazy(() => 
@@ -120,8 +130,6 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (
           parsed.personal?.fullName === "Alex Mercer" || 
-          parsed.personal?.fullName === "Asad Mustafa" || 
-          parsed.personal?.fullName === "ASAD" ||
           !parsed.personal?.fullName
         ) {
           return initialCVData;
@@ -164,6 +172,28 @@ export default function App() {
 
   const [isJobMatchOpen, setIsJobMatchOpen] = useState<boolean>(false);
   const [targetJobMatchCV, setTargetJobMatchCV] = useState<{ cvData: CVData; title: string } | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState<boolean>(false);
+
+  // Consent-gated Microsoft Clarity analytics state
+  const configuredClarityId = getConfiguredClarityId();
+  const [analyticsConsent, setAnalyticsConsent] = useState<AnalyticsConsentStatus>(() =>
+    getAnalyticsConsentStatus()
+  );
+  const [isAnalyticsPrefsOpen, setIsAnalyticsPrefsOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    initializeClarityIfConsented({ clarityId: configuredClarityId });
+  }, [configuredClarityId]);
+
+  const handleAcceptAnalytics = useCallback(() => {
+    grantClarityConsent({ clarityId: configuredClarityId });
+    setAnalyticsConsent("granted");
+  }, [configuredClarityId]);
+
+  const handleRejectAnalytics = useCallback(() => {
+    revokeClarityConsent({ clarityId: configuredClarityId });
+    setAnalyticsConsent("denied");
+  }, [configuredClarityId]);
 
   const handleOpenATS = (customCV?: { cvData: CVData; designConfig: DesignConfig; title: string }) => {
     if (customCV) {
@@ -192,7 +222,12 @@ export default function App() {
 
   const debounceTimerRef = useRef<any>(null);
   const isInitialLoadRef = useRef<boolean>(true);
+  const isExportingRef = useRef<boolean>(isExporting);
   const cvPreviewRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    isExportingRef.current = isExporting;
+  }, [isExporting]);
 
   // Sync user state & load/initialize CVs from Firestore
   useEffect(() => {
@@ -307,10 +342,10 @@ export default function App() {
         }
       }
     } catch (error: any) {
-      console.warn("[CV Builder] Cloud save notice (persisted to local backup):", error);
-      setAutosaveStatus("saved");
+      console.error("[CV Builder] Cloud save error:", error);
+      setAutosaveStatus("error");
       if (showFeedback) {
-        setSuccessToast("Draft saved locally on this device.");
+        setErrorToast("Failed to save CV. Changes remain safely stored locally.");
       }
     } finally {
       setIsSaving(false);
@@ -341,7 +376,7 @@ export default function App() {
 
     debounceTimerRef.current = setTimeout(async () => {
       // Avoid overlapping with an ongoing export or manual save
-      if (isExporting) {
+      if (isExportingRef.current) {
         return;
       }
 
@@ -371,7 +406,7 @@ export default function App() {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [cvData, designConfig, activeCvTitle, currentUser, activeCvId, isExporting]);
+  }, [cvData, designConfig, activeCvTitle, currentUser, activeCvId]);
 
   // Keyboard shortcut Ctrl+S / Cmd+S for manual save in builder mode
   useEffect(() => {
@@ -418,13 +453,16 @@ export default function App() {
     }
   }, [errorToast]);
 
-  // Reset to starter template
+  // Reset to starter template (opens accessible confirmation modal)
   const handleResetToSample = () => {
-    if (window.confirm("Are you sure you want to reset your current draft to default sample data?")) {
-      setCvData(initialCVData);
-      setDesignConfig(initialDesignConfig);
-      setSuccessToast("Restored starter resume content!");
-    }
+    setIsResetConfirmOpen(true);
+  };
+
+  const confirmResetToSample = () => {
+    setCvData(initialCVData);
+    setDesignConfig(initialDesignConfig);
+    setIsResetConfirmOpen(false);
+    setSuccessToast("Restored starter resume content!");
   };
 
   // High performance PDF / Vector ATS / PNG generation with strict try/catch/finally
@@ -546,6 +584,7 @@ export default function App() {
           onNavigateHome={() => navigateTo("home")}
           onNavigateTerms={() => navigateTo("terms")}
           onNavigateBuilder={() => navigateTo("builder")}
+          onOpenAnalyticsPreferences={() => setIsAnalyticsPrefsOpen(true)}
         />
       ) : currentRoute === "terms" ? (
         <TermsOfService 
@@ -599,6 +638,7 @@ export default function App() {
           onNavigateTerms={() => navigateTo("terms")}
           onNavigateATSChecker={() => navigateTo("ats-checker")}
           onNavigateJobMatch={() => navigateTo("job-match")}
+          onOpenAnalyticsPreferences={() => setIsAnalyticsPrefsOpen(true)}
         />
       ) : currentRoute === "ats-checker" ? (
         <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-xs">Loading ATS Resume Checker...</div>}>
@@ -636,6 +676,7 @@ export default function App() {
             onNavigateHome={() => navigateTo("home")}
             onNavigatePrivacy={() => navigateTo("privacy")}
             onNavigateTerms={() => navigateTo("terms")}
+            onOpenAnalyticsPreferences={() => setIsAnalyticsPrefsOpen(true)}
             onNavigateTemplates={() => {
               navigateTo("home");
               setTimeout(() => {
@@ -680,6 +721,7 @@ export default function App() {
             onNavigateHome={() => navigateTo("home")}
             onNavigatePrivacy={() => navigateTo("privacy")}
             onNavigateTerms={() => navigateTo("terms")}
+            onOpenAnalyticsPreferences={() => setIsAnalyticsPrefsOpen(true)}
             onNavigateTemplates={() => {
               navigateTo("home");
               setTimeout(() => {
@@ -695,10 +737,12 @@ export default function App() {
             
             {/* Left: Brand + My CVs + Import */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <div 
+              <button
+                type="button"
                 onClick={() => navigateTo("home")}
-                className="flex items-center gap-2 sm:gap-2.5 cursor-pointer hover:opacity-90 select-none group shrink-0"
+                className="flex items-center gap-2 sm:gap-2.5 cursor-pointer hover:opacity-90 select-none group shrink-0 text-left"
                 title="Go to Homepage"
+                aria-label="Go to ProCVMaker Homepage"
                 id="header_logo_home_btn"
               >
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-blue-500 to-teal-400 flex items-center justify-center font-black text-white text-md shadow-lg shadow-indigo-500/10 shrink-0 group-hover:scale-[1.03] transition-transform">
@@ -710,7 +754,7 @@ export default function App() {
                   </h1>
                   <p className="text-[10px] text-slate-400 font-medium mt-0.5">AI CV Builder & ATS Resume Checker</p>
                 </div>
-              </div>
+              </button>
 
               {/* Utility: My CVs */}
               <button
@@ -783,11 +827,11 @@ export default function App() {
             <div className="flex items-center gap-2 sm:gap-3">
               
               {/* Subtle Save/Sync Status Indicator */}
-              <div className="hidden md:flex items-center">
+              <div className="flex items-center">
                 {isSaving ? (
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300" title="Saving changes...">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                    <span>Saving...</span>
+                    <span className="hidden sm:inline">Saving...</span>
                   </div>
                 ) : autosaveStatus === "saved" ? (
                   <button
@@ -797,12 +841,12 @@ export default function App() {
                     id="header_save_status_btn"
                   >
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Saved</span>
+                    <span className="hidden sm:inline">Saved</span>
                   </button>
                 ) : autosaveStatus === "saving" ? (
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-300" title="Saving changes...">
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                    <span>Saving...</span>
+                    <span className="hidden sm:inline">Saving...</span>
                   </div>
                 ) : autosaveStatus === "error" ? (
                   <button
@@ -812,7 +856,7 @@ export default function App() {
                     id="header_save_status_btn"
                   >
                     <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Save failed · <span className="underline decoration-rose-500">Retry</span></span>
+                    <span><span className="hidden sm:inline">Save failed · </span><span className="underline decoration-rose-500">Retry</span></span>
                   </button>
                 ) : (
                   <button
@@ -822,7 +866,8 @@ export default function App() {
                     id="header_save_status_btn"
                   >
                     <Cloud className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Saved locally · <span className="underline decoration-slate-600 hover:decoration-indigo-400">{currentUser ? "Save to cloud" : "Sign in to sync"}</span></span>
+                    <span className="hidden md:inline">Saved locally · <span className="underline decoration-slate-600 hover:decoration-indigo-400">{currentUser ? "Save to cloud" : "Sign in to sync"}</span></span>
+                    <span className="md:hidden text-[10px]">Local</span>
                   </button>
                 )}
               </div>
@@ -932,14 +977,18 @@ export default function App() {
                   <span className="text-[10px] hidden sm:inline uppercase tracking-widest text-slate-500 font-bold">Preview Scale</span>
                   <div className="flex items-center gap-1.5 bg-slate-900 px-1.5 py-1 rounded border border-slate-800 text-[11px] font-mono">
                     <button 
+                      type="button"
                       onClick={() => setPreviewScale(p => Math.max(0.5, p - 0.05))} 
+                      aria-label="Zoom out resume preview"
                       className="px-1.5 hover:text-white transition cursor-pointer font-bold text-xs"
                     >
                       -
                     </button>
                     <span className="text-slate-300 font-bold">{Math.round(previewScale * 100)}%</span>
                     <button 
+                      type="button"
                       onClick={() => setPreviewScale(p => Math.min(1.2, p + 0.05))} 
+                      aria-label="Zoom in resume preview"
                       className="px-1.5 hover:text-white transition cursor-pointer font-bold text-xs"
                     >
                       +
@@ -1026,6 +1075,14 @@ export default function App() {
               >
                 Terms of Service
               </a>
+              <button
+                type="button"
+                onClick={() => setIsAnalyticsPrefsOpen(true)}
+                className="hover:text-slate-300 transition cursor-pointer"
+                id="builder_footer_analytics_prefs_btn"
+              >
+                Analytics Preferences
+              </button>
               <a 
                 href="/"
                 onClick={(e) => {
@@ -1166,6 +1223,26 @@ export default function App() {
           />
         )}
       </Suspense>
+
+      <ConfirmModal
+        isOpen={isResetConfirmOpen}
+        title="Reset Current Draft?"
+        message="Are you sure you want to reset your current draft to default sample data? Any unsaved local edits in this session will be replaced."
+        confirmLabel="Reset Draft"
+        variant="warning"
+        onConfirm={confirmResetToSample}
+        onCancel={() => setIsResetConfirmOpen(false)}
+      />
+
+      <AnalyticsConsentBanner
+        consentStatus={analyticsConsent}
+        isClarityConfigured={Boolean(configuredClarityId)}
+        isPreferencesOpen={isAnalyticsPrefsOpen}
+        onAccept={handleAcceptAnalytics}
+        onReject={handleRejectAnalytics}
+        onClosePreferences={() => setIsAnalyticsPrefsOpen(false)}
+        onOpenPrivacy={() => navigateTo("privacy")}
+      />
 
     </div>
   );

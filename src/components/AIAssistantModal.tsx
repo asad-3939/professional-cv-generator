@@ -42,6 +42,15 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // File Upload Helper
@@ -153,10 +162,17 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto font-sans">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto font-sans"
+      onClick={onClose}
+    >
       <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-assistant-modal-title"
         className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-8 max-h-[90vh]"
         id="ai_assistant_modal_container"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0 bg-slate-950">
@@ -165,13 +181,15 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">Import Existing Resume</h2>
+              <h2 id="ai-assistant-modal-title" className="text-sm font-bold text-white tracking-tight">Import Existing Resume</h2>
               <p className="text-[11px] text-slate-400">Upload a PDF or Word document to auto-fill your builder fields</p>
             </div>
           </div>
           
           <button 
+            type="button"
             onClick={onClose}
+            aria-label="Close resume import dialog"
             className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
             id="ai_modal_close_btn"
           >

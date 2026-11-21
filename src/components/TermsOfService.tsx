@@ -127,33 +127,42 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
 
           {/* Section 4 */}
           <section className="space-y-4">
-            <h2 className="text-lg font-bold text-white">4. Intellectual Property & Ownership</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h2 className="text-lg font-bold text-white">4. Intellectual Property &amp; Open-Source Licensing</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-                <h3 className="font-bold text-white text-xs uppercase tracking-wider text-emerald-400">Your Resume Content</h3>
+                <h3 className="font-bold text-xs uppercase tracking-wider text-emerald-400">Your Resume Content</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   You retain 100% ownership and intellectual property rights over the text, career details, personal data, and exported documents you create. We claim no ownership over your career history.
                 </p>
               </div>
               <div className="p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-                <h3 className="font-bold text-white text-xs uppercase tracking-wider text-indigo-400">Platform & Design IP</h3>
+                <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-400">MIT Open-Source Code</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  The software code, website designs, template layouts, visual styling, icons, algorithms, and brand assets are protected by intellectual property laws. You may not duplicate, reverse engineer, or sell our templates as a competing service.
+                  The ProCVMaker source code and built-in template implementations in our public repository are licensed under the <strong>MIT License</strong> (Copyright &copy; 2026 Asad Mustafa). You are free to inspect, fork, modify, self-host, and redistribute the software in accordance with the <code className="text-slate-300">LICENSE</code> and <code className="text-slate-300">THIRD_PARTY_NOTICES.md</code> files.
+                </p>
+              </div>
+              <div className="p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-teal-400">Hosted Service &amp; Branding</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  These Terms of Service govern your use of the hosted web application at <span className="text-slate-300">www.procvmaker.online</span>. Nothing in these terms restricts your rights under the MIT License for the public source code, while the ProCVMaker name, marks, and live domain remain managed by the maintainer and must not be misrepresented as an official endorsement.
                 </p>
               </div>
             </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Note: These terms describe intended operational and open-source licensing boundaries and should be reviewed by qualified legal counsel before relying on them for jurisdiction-specific commercial compliance.
+            </p>
           </section>
 
           {/* Section 5 */}
           <section className="space-y-4">
             <h2 className="text-lg font-bold text-white">5. Acceptable Use Policy</h2>
             <p>
-              When using the platform, you agree not to:
+              When using the hosted platform at <span className="text-slate-200">www.procvmaker.online</span>, you agree not to:
             </p>
             <ul className="list-disc pl-5 space-y-1.5 text-slate-300 text-xs">
               <li>Upload malicious code, viruses, or documents containing fraudulent or deceptive materials.</li>
-              <li>Attempt to disrupt, overload, or bypass the security infrastructure or API rate limits of the platform.</li>
-              <li>Use automated scrapers, crawlers, or extraction tools against our platform without express permission.</li>
+              <li>Attempt to disrupt, overload, or bypass the security infrastructure or API rate limits of the hosted service.</li>
+              <li>Use automated scrapers or abuse tools against the hosted API endpoints without authorization.</li>
               <li>Impersonate any person or entity in a fraudulent manner.</li>
             </ul>
           </section>
@@ -215,7 +224,7 @@ export function TermsOfService({ onNavigateHome, onNavigatePrivacy, onNavigateBu
       {/* Footer Navigation */}
       <footer className="border-t border-slate-850 bg-slate-950 px-4 md:px-8 py-8 text-xs text-slate-400">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 ProCVMaker. All rights reserved.</p>
+          <p>&copy; 2026 Asad Mustafa &bull; ProCVMaker source code released under the MIT License.</p>
           <div className="flex items-center gap-5">
             <a 
               href="/" 
